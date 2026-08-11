@@ -3,19 +3,23 @@ import { View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBa
 import { ArrowLeft, Search } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { TransactionItem } from '../../components/TransactionItem';
-import { mockTransactions } from '../../utils/mockData';
 import { useNavigation } from '@react-navigation/native';
+import { useStore } from '../../store/useStore';
 
 export const SearchScreen = () => {
   const navigation = useNavigation<any>();
-  const [query, setQuery] = useState('Amazon');
+  const transactions = useStore(state => state.transactions);
+  const [query, setQuery] = useState('');
 
-  const recentSearches = ['Amazon', 'Uber', 'Rent'];
+  const recentSearches = ['Food', 'Transport', 'Shopping', 'Bills'];
   
-  // Mock filter
-  const matchingTransactions = mockTransactions.filter(t => 
-    t.title.toLowerCase().includes(query.toLowerCase())
-  );
+  // Filter real transactions from the store
+  const matchingTransactions = query.length > 0
+    ? transactions.filter(t =>
+        t.title.toLowerCase().includes(query.toLowerCase()) ||
+        t.category.toLowerCase().includes(query.toLowerCase())
+      )
+    : [];
 
   return (
     <SafeAreaView style={styles.safeArea}>

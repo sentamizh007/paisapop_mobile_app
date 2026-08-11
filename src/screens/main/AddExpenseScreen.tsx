@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, SafeAreaView, StatusBar as RNStatusBar } from 'react-native';
-import { X, Calendar, Image as ImageIcon, Utensils, Car, ShoppingBag, Zap } from 'lucide-react-native';
+import { X, Calendar, Image as ImageIcon, Utensils, Car, ShoppingBag, Zap, Plus } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
@@ -14,6 +14,7 @@ export const AddExpenseScreen = () => {
   const isLoading = useStore(state => state.isLoading);
 
   const [amountStr, setAmountStr] = useState('');
+  const [title, setTitle] = useState('');
   const [category, setCategory] = useState<Category>('Food');
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [notes, setNotes] = useState('');
@@ -35,12 +36,12 @@ export const AddExpenseScreen = () => {
     }
 
     const now = new Date();
-    // Simplified date handling for now, would typically use a library or proper formatter
-    const dateStr = 'Today'; 
+    // Store date as ISO string so DB can sort correctly
+    const dateStr = now.toISOString().split('T')[0]; // e.g. "2026-08-11"
     const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
     await addTransaction({
-      title: notes || 'New Expense', // Use notes or generic title
+      title: title.trim() || notes.trim() || 'New Expense',
       amount: numericAmount,
       category,
       date: dateStr,
@@ -122,12 +123,22 @@ export const AddExpenseScreen = () => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>NOTES (Title)</Text>
-          <Input 
+          <Text style={styles.sectionTitle}>TITLE</Text>
+          <Input
+            value={title}
+            onChangeText={setTitle}
+            placeholder="e.g. Swiggy, Amazon..."
+            leftIcon={<ShoppingBag size={18} color={colors.textSecondary} />}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>NOTES</Text>
+          <Input
             value={notes}
             onChangeText={setNotes}
-            placeholder="Add note or title..."
-            leftIcon={<Utensils size={18} color={colors.textSecondary} />} 
+            placeholder="Optional note..."
+            leftIcon={<Utensils size={18} color={colors.textSecondary} />}
           />
         </View>
 
@@ -136,7 +147,7 @@ export const AddExpenseScreen = () => {
             <ImageIcon size={18} color={colors.textSecondary} />
             <Text style={styles.attachLabel}>Attach receipt thumbnail</Text>
           </View>
-          <PlusIcon color={colors.textSecondary} size={18} />
+          <Plus color={colors.textSecondary} size={18} />
         </TouchableOpacity>
 
       </ScrollView>
@@ -152,9 +163,7 @@ export const AddExpenseScreen = () => {
   );
 };
 
-const PlusIcon = ({ color, size }: { color: string, size: number }) => (
-  <Text style={{ color, fontSize: size }}>+</Text>
-);
+
 
 const styles = StyleSheet.create({
   safeArea: {

@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   primaryText: {
-    color: '#000000', // Typically teal buttons have dark text for contrast, but based on UI, it might be white. Let's use white for now.
+    color: colors.textPrimary, // White text on primary (teal) button
   },
   secondaryText: {
     color: colors.textPrimary,
@@ -89,6 +89,3 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
-
-// Update primary text color to white based on the "Save Expense" button screenshot
-styles.primaryText.color = colors.textPrimary;

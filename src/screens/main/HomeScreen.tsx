@@ -65,7 +65,7 @@ export const HomeScreen = () => {
               <Text style={styles.actionText}>Expense</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionBtn}>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('AddExpense')}>
               <View style={[styles.actionIcon, { backgroundColor: colors.successBg }]}>
                 <ArrowDownRight color={colors.success} size={20} />
               </View>

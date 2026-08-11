@@ -21,7 +21,7 @@ export const Input = ({ label, error, leftIcon, rightIcon, style, containerStyle
       ]}>
         {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
         <TextInput
-          style={styles.input}
+          style={[styles.input, style]}
           placeholderTextColor={colors.textSecondary}
           {...rest}
         />

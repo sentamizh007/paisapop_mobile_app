@@ -14,7 +14,7 @@ export type RootStackParamList = {
   AddExpense: undefined;
   Search: undefined;
   TransactionDetails: { id: string };
-  AllTransactions: undefined;
+  Transactions: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -30,7 +30,7 @@ export const RootNavigator = () => {
       ) : (
         <>
           <Stack.Screen name="Main" component={TabNavigator} />
-          <Stack.Screen name="AllTransactions" component={TransactionsScreen} />
+          <Stack.Screen name="Transactions" component={TransactionsScreen} />
           <Stack.Screen 
             name="AddExpense" 
             component={AddExpenseScreen}
