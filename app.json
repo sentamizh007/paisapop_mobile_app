@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "PaisaPop",
-    "slug": "ExpenseTracker",
+    "slug": "kerplunk",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -11,7 +11,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.paisapop.expensetracker"
+      "bundleIdentifier": "com.paisapop.expensetracker",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -25,7 +28,14 @@
       "favicon": "./assets/icon.png"
     },
     "plugins": [
-      "expo-sqlite"
-    ]
+      "expo-sqlite",
+      "expo-sharing"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d2ad6f37-94a6-4b0e-8203-df701b1a9564"
+      }
+    },
+    "owner": "kerplunkmedias-team"
   }
 }
