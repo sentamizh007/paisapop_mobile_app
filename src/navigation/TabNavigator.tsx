@@ -1,73 +1,100 @@
 import React from 'react';
+import { View, Platform, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { MaterialIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PlusCircle, Clock, BarChart3 } from 'lucide-react-native';
 import { AddExpenseScreen } from '../screens/main/AddExpenseScreen';
 import { HistoryScreen } from '../screens/main/HistoryScreen';
 import { AnalyticsScreen } from '../screens/main/AnalyticsScreen';
-import { useThemeColors } from '../theme/colors';
+import { darkColors as C } from '../theme/colors';
 
 export type TabParamList = {
-  Tap: undefined;
+  Add: undefined;
   History: undefined;
   Analytics: undefined;
 };
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
+const TAB_H = 60;
+
 export const TabNavigator = () => {
-  const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
+  const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 6 : 0);
+  const tabBarHeight = TAB_H + bottomPad;
 
   return (
     <Tab.Navigator
-      initialRouteName="Tap"
-      screenOptions={{
+      initialRouteName="Add"
+      screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          height: 65,
-          paddingBottom: 10,
-          paddingTop: 10,
-          elevation: 10,
+          backgroundColor: C.surface,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: C.border,
+          height: tabBarHeight,
+          paddingBottom: bottomPad,
+          paddingTop: 0,
+          elevation: 24,
+          shadowColor: '#000',
           shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.05,
-          shadowRadius: 8,
+          shadowOpacity: 0.25,
+          shadowRadius: 16,
+          position: 'absolute',
         },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarActiveTintColor: '#FFFFFF',
+        tabBarInactiveTintColor: '#71717A',
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
+          fontSize: 10,
+          fontWeight: '700',
+          letterSpacing: 0.3,
+          marginTop: 0,
         },
-      }}
+        tabBarItemStyle: {
+          paddingTop: 10,
+        },
+      })}
     >
-      {/* ① Add Expense — opens first on app launch */}
       <Tab.Screen
-        name="Tap"
+        name="Add"
         component={AddExpenseScreen}
         options={{
           tabBarLabel: 'Add',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="add-circle-outline" color={color} size={size} />,
+          tabBarIcon: ({ color, focused }) => (
+            <PlusCircle
+              size={focused ? 26 : 23}
+              color={color}
+              strokeWidth={focused ? 2.2 : 1.8}
+            />
+          ),
         }}
       />
-
-      {/* ② History */}
       <Tab.Screen
         name="History"
         component={HistoryScreen}
         options={{
           tabBarLabel: 'History',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="history" color={color} size={size} />,
+          tabBarIcon: ({ color, focused }) => (
+            <Clock
+              size={focused ? 26 : 23}
+              color={color}
+              strokeWidth={focused ? 2.2 : 1.8}
+            />
+          ),
         }}
       />
-
-      {/* ③ Analytics */}
       <Tab.Screen
         name="Analytics"
         component={AnalyticsScreen}
         options={{
           tabBarLabel: 'Analytics',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="bar-chart" color={color} size={size} />,
+          tabBarIcon: ({ color, focused }) => (
+            <BarChart3
+              size={focused ? 26 : 23}
+              color={color}
+              strokeWidth={focused ? 2.2 : 1.8}
+            />
+          ),
         }}
       />
     </Tab.Navigator>

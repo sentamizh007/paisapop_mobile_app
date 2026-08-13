@@ -1,67 +1,77 @@
-import { useStore } from '../store/useStore';
 
 export interface ThemeColors {
   background: string;
   surface: string;
-  surfaceLight: string;
+  surfaceElevated: string;
+  surfaceMid: string;
   primary: string;
   primaryDark: string;
+  income: string;
+  expense: string;
   textPrimary: string;
   textSecondary: string;
+  textMuted: string;
   danger: string;
   dangerBg: string;
-  success: string;
-  successBg: string;
   warning: string;
   info: string;
   border: string;
   overlay: string;
+  // keep legacy aliases so existing code doesn't break
+  surfaceLight: string;
+  success: string;
+  successBg: string;
   glass: string;
 }
 
-export const lightColors: ThemeColors = {
-  background: '#F8FAFC',
-  surface: '#FFFFFF',
-  surfaceLight: '#F1F5F9',
-  primary: '#6366F1', // Indigo
-  primaryDark: '#4F46E5',
-  textPrimary: '#0F172A', // Slate 900
-  textSecondary: '#64748B', // Slate 500
-  danger: '#EF4444',
-  dangerBg: '#FEE2E2',
-  success: '#10B981',
-  successBg: '#D1FAE5',
-  warning: '#F59E0B',
-  info: '#3B82F6',
-  border: '#E2E8F0',
-  overlay: 'rgba(0, 0, 0, 0.4)',
-  glass: 'rgba(255, 255, 255, 0.7)',
-};
-
+/**
+ * PaisaPop Dark — the only theme.
+ *
+ * Palette rationale:
+ *  - Background: #0C0C0E  — slightly warmer than pure black, easier on OLED
+ *  - Surface:    #161618  — card layer
+ *  - Primary:    #C084FC  — purple-400, high contrast on dark, premium fintech feel
+ *  - Expense:    #FB923C  — orange-400, warm/actionable (not alarming red)
+ *  - Income:     #4ADE80  — green-400, bright and readable
+ *  - Danger:     #EF4444  — reserved ONLY for destructive actions
+ */
 export const darkColors: ThemeColors = {
-  background: '#0F172A', // Very dark slate
-  surface: '#1E293B',
-  surfaceLight: '#334155',
-  primary: '#818CF8', // Lighter Indigo
-  primaryDark: '#6366F1',
-  textPrimary: '#F8FAFC', // Slate 50
-  textSecondary: '#94A3B8', // Slate 400
-  danger: '#F87171',
-  dangerBg: 'rgba(239, 68, 68, 0.1)',
-  success: '#34D399',
-  successBg: 'rgba(16, 185, 129, 0.1)',
-  warning: '#FBBF24',
+  // Backgrounds
+  background: '#0C0C0E',
+  surface: '#161618',
+  surfaceElevated: '#1E1E22',
+  surfaceMid: '#252529',
+
+  // Brand
+  primary: '#FFFFFF',   // white
+  primaryDark: '#E4E4E7',   // zinc-200
+
+  // Semantic transaction colors
+  income: '#4ADE80',   // green-400
+  expense: '#FB923C',   // orange-400
+
+  // Typography
+  textPrimary: '#F4F4F5',   // zinc-100
+  textSecondary: '#71717A',   // zinc-500
+  textMuted: '#3F3F46',   // zinc-700
+
+  // States
+  danger: '#EF4444',
+  dangerBg: 'rgba(239,68,68,0.12)',
+  warning: '#F59E0B',
   info: '#60A5FA',
-  border: '#334155',
-  overlay: 'rgba(0, 0, 0, 0.6)',
-  glass: 'rgba(30, 41, 59, 0.7)',
+
+  // Structure
+  border: '#2A2A2E',
+  overlay: 'rgba(0,0,0,0.72)',
+
+  // Legacy aliases (keeps old code working without mass find/replace)
+  surfaceLight: '#252529',   // = surfaceMid
+  success: '#4ADE80',   // = income
+  successBg: 'rgba(74,222,128,0.12)',
+  glass: 'rgba(22,22,24,0.9)',
 };
 
-// Fallback for files that haven't been updated yet (will be removed eventually)
-export const colors = lightColors;
+export const colors = darkColors;
 
-export const useThemeColors = () => {
-  const theme = useStore((state) => state.theme);
-  return theme === 'dark' ? darkColors : lightColors;
-};
-
+export const useThemeColors = (): ThemeColors => darkColors;

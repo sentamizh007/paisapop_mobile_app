@@ -3,16 +3,37 @@ import {
   View, Text, StyleSheet, TouchableOpacity, Modal, Switch, TextInput,
   ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Animated
 } from 'react-native';
-import { X, ChevronRight, Download, Trash2 } from 'lucide-react-native';
+import { X, ChevronRight, Download, Trash2, LogOut } from 'lucide-react-native';
 import { MONTH_NAMES } from '../utils/exportUtils';
 import { exportAndShare } from '../utils/exportUtils';
 import { Transaction } from '../utils/mockData';
 import { Alert } from 'react-native';
-import { Currency, Theme } from '../store/useStore';
+import { Currency, Theme, useStore } from '../store/useStore';
 
 const CURRENCIES: { label: string; value: Currency; symbol: string }[] = [
-  { label: 'Indian Rupee (₹)', value: 'INR', symbol: '₹' },
   { label: 'US Dollar ($)', value: 'USD', symbol: '$' },
+  { label: 'Euro (€)', value: 'EUR', symbol: '€' },
+  { label: 'British Pound (£)', value: 'GBP', symbol: '£' },
+  { label: 'Indian Rupee (₹)', value: 'INR', symbol: '₹' },
+  { label: 'Japanese Yen (¥)', value: 'JPY', symbol: '¥' },
+  { label: 'Canadian Dollar (C$)', value: 'CAD', symbol: 'C$' },
+  { label: 'Australian Dollar (A$)', value: 'AUD', symbol: 'A$' },
+  { label: 'Swiss Franc (CHF)', value: 'CHF', symbol: 'CHF' },
+  { label: 'Chinese Yuan (¥)', value: 'CNY', symbol: '¥' },
+  { label: 'Swedish Krona (kr)', value: 'SEK', symbol: 'kr' },
+  { label: 'New Zealand Dollar (NZ$)', value: 'NZD', symbol: 'NZ$' },
+  { label: 'Mexican Peso ($)', value: 'MXN', symbol: '$' },
+  { label: 'Singapore Dollar (S$)', value: 'SGD', symbol: 'S$' },
+  { label: 'Hong Kong Dollar (HK$)', value: 'HKD', symbol: 'HK$' },
+  { label: 'South Korean Won (₩)', value: 'KRW', symbol: '₩' },
+  { label: 'Turkish Lira (₺)', value: 'TRY', symbol: '₺' },
+  { label: 'Russian Ruble (₽)', value: 'RUB', symbol: '₽' },
+  { label: 'South African Rand (R)', value: 'ZAR', symbol: 'R' },
+  { label: 'Brazilian Real (R$)', value: 'BRL', symbol: 'R$' },
+  { label: 'Indonesian Rupiah (Rp)', value: 'IDR', symbol: 'Rp' },
+  { label: 'Philippine Peso (₱)', value: 'PHP', symbol: '₱' },
+  { label: 'Malaysian Ringgit (RM)', value: 'MYR', symbol: 'RM' },
+  { label: 'Thai Baht (฿)', value: 'THB', symbol: '฿' },
 ];
 
 interface Props {
@@ -27,7 +48,9 @@ interface Props {
   monthlyBudget: number;
   setMonthlyBudget: (b: number) => void;
   categories: string[];
-  addCategory: (c: string) => void;
+  addCategory: (c: string, meta?: { emoji: string; color: string }) => void;
+  categoryBudgets: Record<string, { amount: number, period: 'monthly' | 'weekly' }>;
+  setCategoryBudget: (c: string, b: { amount: number, period: 'monthly' | 'weekly' }) => void;
   confirmClearAll: () => void;
   transactions: Transaction[];
 }
@@ -35,14 +58,23 @@ interface Props {
 export const SettingsModal = ({
   visible, onClose, colors, theme, setTheme, currency, setCurrency,
   currencySymbol, monthlyBudget, setMonthlyBudget, categories,
-  addCategory, confirmClearAll, transactions
+  addCategory, confirmClearAll, transactions, categoryBudgets, setCategoryBudget,
 }: Props) => {
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [showBudget, setShowBudget] = useState(false);
   const [budgetStr, setBudgetStr] = useState('');
   const [showAddCat, setShowAddCat] = useState(false);
   const [newCat, setNewCat] = useState('');
+  const [newCatEmoji, setNewCatEmoji] = useState('✨');
+  const [newCatColor, setNewCatColor] = useState('#6366F1');
 
+  const [showCatBudget, setShowCatBudget] = useState(false);
+  const [budgetCat, setBudgetCat] = useState('');
+  const [catBudgetAmount, setCatBudgetAmount] = useState('');
+  const [catBudgetPeriod, setCatBudgetPeriod] = useState<'monthly' | 'weekly'>('monthly');
+
+  const EMOJIS = ['🛒', '🍔', '🚕', '🎬', '💡', '👕', '🏥', '✈️', '📚', '🎁', '🐶', '🔧', '🪴', '🎸', '🎮'];
+  const COLORS = ['#F97316', '#2563EB', '#8B5CF6', '#F59E0B', '#10B981', '#EC4899', '#6366F1', '#0EA5E9', '#14B8A6', '#22C55E', '#A855F7', '#F43F5E', '#0F766E', '#64748B'];
   // Export state
   const [showExport, setShowExport] = useState(false);
   const [exportMonth, setExportMonth] = useState(new Date().getMonth());
@@ -84,20 +116,7 @@ export const SettingsModal = ({
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              {/* Appearance */}
-              <Text style={[styles.settingSection, { color: colors.textSecondary }]}>APPEARANCE</Text>
 
-              <View style={[styles.settingRow, { borderColor: colors.border }]}>
-                <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>Dark Mode</Text>
-                <Switch
-                  value={theme === 'dark'}
-                  onValueChange={v => setTheme(v ? 'dark' : 'light')}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor="#FFF"
-                />
-              </View>
-
-              {/* Currency */}
               <TouchableOpacity
                 style={[styles.settingRow, { borderColor: colors.border }]}
                 onPress={() => setShowCurrencyPicker(p => !p)}
@@ -152,7 +171,7 @@ export const SettingsModal = ({
                     autoFocus
                   />
                   <TouchableOpacity
-                    style={[styles.inlineSave, { backgroundColor: colors.primary }]}
+                    style={styles.inlineSave}
                     onPress={() => {
                       const v = parseFloat(budgetStr);
                       if (!isNaN(v) && v >= 0) { setMonthlyBudget(v); setShowBudget(false); }
@@ -167,7 +186,11 @@ export const SettingsModal = ({
               <Text style={[styles.settingSection, { color: colors.textSecondary }]}>CATEGORIES</Text>
               <TouchableOpacity
                 style={[styles.settingRow, { borderColor: colors.border }]}
-                onPress={() => setShowAddCat(p => !p)}
+                onPress={() => {
+                  setNewCatEmoji(EMOJIS[Math.floor(Math.random() * EMOJIS.length)]);
+                  setNewCatColor(COLORS[Math.floor(Math.random() * COLORS.length)]);
+                  setShowAddCat(p => !p);
+                }}
               >
                 <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>Add Category</Text>
                 <View style={styles.settingRight}>
@@ -176,24 +199,98 @@ export const SettingsModal = ({
                 </View>
               </TouchableOpacity>
               {showAddCat && (
-                <View style={styles.inlineRow}>
-                  <TextInput
-                    style={[styles.inlineInput, { color: colors.textPrimary, backgroundColor: colors.background, borderColor: colors.border }]}
-                    value={newCat}
-                    onChangeText={setNewCat}
-                    placeholder="e.g. Pet Care"
-                    placeholderTextColor={colors.textSecondary}
-                    autoFocus
-                  />
+                <View style={[styles.inlineRow, { flexDirection: 'column', alignItems: 'stretch' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 }}>
+                    <TouchableOpacity
+                      style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: newCatColor + '20', alignItems: 'center', justifyContent: 'center' }}
+                      onPress={() => setNewCatEmoji(EMOJIS[Math.floor(Math.random() * EMOJIS.length)])}
+                    >
+                      <Text style={{ fontSize: 20 }}>{newCatEmoji}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: newCatColor }}
+                      onPress={() => setNewCatColor(COLORS[Math.floor(Math.random() * COLORS.length)])}
+                    />
+                    <TextInput
+                      style={[styles.inlineInput, { flex: 1, color: colors.textPrimary, backgroundColor: colors.background, borderColor: colors.border }]}
+                      value={newCat}
+                      onChangeText={setNewCat}
+                      placeholder="e.g. Pet Care"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                  </View>
                   <TouchableOpacity
-                    style={[styles.inlineSave, { backgroundColor: colors.primary }]}
+                    style={[styles.inlineSave, { width: '100%', alignItems: 'center' }]}
                     onPress={() => {
                       const t = newCat.trim();
-                      if (t && !categories.includes(t)) { addCategory(t); setNewCat(''); setShowAddCat(false); }
+                      if (t && !categories.includes(t)) {
+                        addCategory(t, { emoji: newCatEmoji, color: newCatColor });
+                        setNewCat('');
+                        setShowAddCat(false);
+                      }
                     }}
                   >
-                    <Text style={styles.inlineSaveText}>Add</Text>
+                    <Text style={styles.inlineSaveText}>Add Category</Text>
                   </TouchableOpacity>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.settingRow, { borderColor: colors.border }]}
+                onPress={() => setShowCatBudget(p => !p)}
+              >
+                <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>Category Budgets</Text>
+                <ChevronRight size={14} color={colors.textSecondary} />
+              </TouchableOpacity>
+              {showCatBudget && (
+                <View style={{ paddingHorizontal: 15, paddingBottom: 15 }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+                    {categories.map(c => (
+                      <TouchableOpacity
+                        key={c}
+                        style={{ padding: 8, paddingHorizontal: 12, borderRadius: 20, backgroundColor: budgetCat === c ? colors.primary : colors.surfaceMid, marginRight: 8 }}
+                        onPress={() => setBudgetCat(c)}
+                      >
+                        <Text style={{ color: budgetCat === c ? '#000' : colors.textPrimary, fontWeight: budgetCat === c ? '700' : '400' }}>{c}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  {budgetCat ? (
+                    <View style={styles.inlineRow}>
+                      <TextInput
+                        style={[styles.inlineInput, { color: colors.textPrimary, backgroundColor: colors.background, borderColor: colors.border }]}
+                        keyboardType="numeric"
+                        value={catBudgetAmount}
+                        onChangeText={setCatBudgetAmount}
+                        placeholder={`Limit for ${budgetCat}`}
+                        placeholderTextColor={colors.textSecondary}
+                      />
+                      <TouchableOpacity
+                        style={[styles.inlineSave, { backgroundColor: colors.primary, paddingHorizontal: 10, marginRight: 5 }]}
+                        onPress={() => setCatBudgetPeriod(p => p === 'monthly' ? 'weekly' : 'monthly')}
+                      >
+                        <Text style={styles.inlineSaveText}>{catBudgetPeriod === 'monthly' ? 'Month' : 'Week'}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.inlineSave}
+                        onPress={() => {
+                          const v = parseFloat(catBudgetAmount);
+                          if (!isNaN(v) && v >= 0) {
+                            setCategoryBudget(budgetCat, { amount: v, period: catBudgetPeriod });
+                            setCatBudgetAmount('');
+                            setBudgetCat('');
+                          }
+                        }}
+                      >
+                        <Text style={styles.inlineSaveText}>Save</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
+                  {Object.keys(categoryBudgets).map(c => (
+                    <Text key={c} style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>
+                      {c}: {currencySymbol}{categoryBudgets[c].amount} / {categoryBudgets[c].period}
+                    </Text>
+                  ))}
                 </View>
               )}
 
@@ -215,10 +312,10 @@ export const SettingsModal = ({
                   <View style={styles.exportToggleRow}>
                     <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>Export All Data</Text>
                     <Switch
-                       value={exportAll}
-                       onValueChange={setExportAll}
-                       trackColor={{ false: colors.border, true: colors.primary }}
-                       thumbColor="#FFF"
+                      value={exportAll}
+                      onValueChange={setExportAll}
+                      trackColor={{ false: colors.border, true: colors.primary }}
+                      thumbColor="#FFF"
                     />
                   </View>
                   {!exportAll && (
@@ -231,7 +328,7 @@ export const SettingsModal = ({
                             style={[styles.monthPill, { backgroundColor: exportMonth === i ? colors.primary : colors.surface }]}
                             onPress={() => setExportMonth(i)}
                           >
-                            <Text style={[styles.monthPillText, { color: exportMonth === i ? '#FFF' : colors.textSecondary }]}>
+                            <Text style={[styles.monthPillText, { color: exportMonth === i ? '#000' : colors.textSecondary, fontWeight: exportMonth === i ? '700' : '400' }]}>
                               {mn.slice(0, 3)}
                             </Text>
                           </TouchableOpacity>
@@ -249,7 +346,7 @@ export const SettingsModal = ({
                     </View>
                   )}
                   <TouchableOpacity
-                    style={[styles.exportBtn, { backgroundColor: colors.primary }]}
+                    style={styles.exportBtn}
                     onPress={handleExport}
                     disabled={exporting}
                   >
@@ -270,6 +367,21 @@ export const SettingsModal = ({
                 <View style={styles.settingLeft}>
                   <Trash2 size={17} color="#EF4444" />
                   <Text style={[styles.settingLabel, { color: '#EF4444' }]}>Clear All Data</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.settingRow, styles.dangerRow, { borderColor: '#FEE2E2', marginTop: 12 }]}
+                onPress={() => {
+                  onClose();
+                  setTimeout(() => {
+                    useStore.getState().logout();
+                  }, 300);
+                }}
+              >
+                <View style={styles.settingLeft}>
+                  <LogOut size={17} color="#EF4444" />
+                  <Text style={[styles.settingLabel, { color: '#EF4444' }]}>Log Out</Text>
                 </View>
               </TouchableOpacity>
 
@@ -296,15 +408,15 @@ const styles = StyleSheet.create({
   settingRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   settingValue: { fontSize: 15, fontWeight: '600' },
   dangerRow: { borderBottomWidth: 0, marginTop: 8 },
-  
+
   // Pickers & Inputs
   pickerBox: { borderRadius: 16, borderWidth: 1, marginTop: 8, overflow: 'hidden' },
   pickerRow: { padding: 16, borderBottomWidth: StyleSheet.hairlineWidth },
   pickerText: { fontSize: 15, fontWeight: '600' },
   inlineRow: { flexDirection: 'row', gap: 12, marginTop: 12 },
   inlineInput: { flex: 1, height: 48, borderRadius: 12, borderWidth: 1, paddingHorizontal: 16, fontSize: 15 },
-  inlineSave: { height: 48, paddingHorizontal: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  inlineSaveText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  inlineSave: { height: 48, paddingHorizontal: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' },
+  inlineSaveText: { color: '#000000', fontSize: 15, fontWeight: '800' },
 
   // Export
   exportPanel: { borderRadius: 16, borderWidth: 1, marginTop: 12, padding: 16 },
@@ -315,6 +427,6 @@ const styles = StyleSheet.create({
   yearRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 16, gap: 24 },
   yearLabel: { fontSize: 18, fontWeight: '700' },
   yearBtn: { fontSize: 20, fontWeight: '700', padding: 8 },
-  exportBtn: { marginTop: 20, height: 50, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  exportBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  exportBtn: { marginTop: 20, height: 50, borderRadius: 14, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' },
+  exportBtnText: { color: '#000000', fontSize: 16, fontWeight: '800' },
 });

@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useState, useCallback } from 'react';
+
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useThemeColors } from './src/theme/colors';
 import { initDB } from './src/db/database';
 import { useStore } from './src/store/useStore';
-import { View, ActivityIndicator, Text } from 'react-native';
+import { View, ActivityIndicator, Text, StatusBar, TouchableOpacity } from 'react-native';
 
 function AppInner() {
   const [ready, setReady] = useState(false);
@@ -16,22 +16,25 @@ function AppInner() {
   const theme = useStore((s) => s.theme);
   const colors = useThemeColors();
 
+  const setup = useCallback(async () => {
+    setReady(false);
+    setError(null);
+    try {
+      // Load persisted settings first so theme is correct from the start
+      await loadSettings();
+      await initDB();
+      await loadTransactions();
+    } catch (e: any) {
+      console.error('App init error:', e);
+      setError(e?.message ?? 'Failed to initialize app');
+    } finally {
+      setReady(true);
+    }
+  }, [loadSettings, loadTransactions]);
+
   useEffect(() => {
-    const setup = async () => {
-      try {
-        // Load persisted settings first so theme is correct from the start
-        await loadSettings();
-        await initDB();
-        await loadTransactions();
-      } catch (e: any) {
-        console.error('App init error:', e);
-        setError(e?.message ?? 'Failed to initialize app');
-      } finally {
-        setReady(true);
-      }
-    };
     setup();
-  }, []);
+  }, [setup]);
 
   if (!ready) {
     return (
@@ -46,26 +49,37 @@ function AppInner() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
         <Text style={{ color: colors.danger ?? '#EF4444', fontSize: 16, fontWeight: '700', marginBottom: 8 }}>Error</Text>
-        <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>{error}</Text>
+        <Text style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: 20 }}>{error}</Text>
+        <TouchableOpacity
+          onPress={setup}
+          style={{
+            backgroundColor: colors.primary,
+            paddingHorizontal: 24,
+            paddingVertical: 12,
+            borderRadius: 8,
+          }}
+        >
+          <Text style={{ color: colors.background, fontWeight: '600', fontSize: 14 }}>Try Again</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   const navTheme = {
-    ...(theme === 'dark' ? DarkTheme : DefaultTheme),
+    ...DarkTheme,
     colors: {
-      ...(theme === 'dark' ? DarkTheme.colors : DefaultTheme.colors),
-      background: colors.background,
-      card: colors.surface,
-      text: colors.textPrimary,
-      border: colors.border,
+      ...DarkTheme.colors,
+      background: '#09090B',
+      card: '#18181B',
+      text: '#FAFAFA',
+      border: '#3F3F46',
     },
   };
 
   return (
     <NavigationContainer theme={navTheme}>
       <RootNavigator />
-      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar barStyle="light-content" backgroundColor="#09090B" />
     </NavigationContainer>
   );
 }

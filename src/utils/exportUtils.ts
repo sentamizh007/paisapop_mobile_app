@@ -1,5 +1,6 @@
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
 import { Transaction } from './mockData';
 
 const MONTH_NAMES = [
@@ -73,12 +74,25 @@ export const exportAndShare = async (
       label = `${MONTH_NAMES[month]}_${year}`;
     }
 
+    const filename = `expenses_${label}.csv`;
+
+    if (Platform.OS === 'web') {
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return { success: true };
+    }
+
     const docDir = Paths.document;
     if (!docDir) {
       return { success: false, error: 'Document directory is not accessible on this device.' };
     }
 
-    const filename = `expenses_${label}.csv`;
     const file = new File(docDir, filename);
 
     file.write(csv);

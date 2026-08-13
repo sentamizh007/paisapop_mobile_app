@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { User, ShieldCheck } from 'lucide-react-native';
 import { useStore } from '../../store/useStore';
+import { colors as C } from '../../theme/colors';
 
 const { width: W } = Dimensions.get('window');
 const BLOB = W * 0.72;
@@ -60,11 +61,11 @@ export const LoginScreen = () => {
             <Text style={styles.labelSub}>This will appear in your account</Text>
 
             <View style={[styles.inputWrapper, focused && styles.inputFocused, !!error && styles.inputError]}>
-              <User color={error ? '#EF4444' : focused ? '#4F46E5' : '#94A3B8'} size={20} />
+              <User color={error ? C.danger : focused ? C.primary : C.textSecondary} size={20} />
               <TextInput
                 style={styles.input}
                 placeholder="Your Name"
-                placeholderTextColor="#CBD5E1"
+                placeholderTextColor={C.textSecondary}
                 value={name}
                 onChangeText={t => { setName(t); setError(''); }}
                 onFocus={() => setFocused(true)}
@@ -83,7 +84,7 @@ export const LoginScreen = () => {
           </View>
 
           <View style={styles.footer}>
-            <ShieldCheck color="#94A3B8" size={15} />
+            <ShieldCheck color={C.textSecondary} size={15} />
             <Text style={styles.footerText}>Your data is private and secure</Text>
           </View>
 
@@ -95,41 +96,41 @@ export const LoginScreen = () => {
 
 const styles = StyleSheet.create({
   safe: {
-    flex: 1, backgroundColor: '#F0F2FA',
+    flex: 1, backgroundColor: C.background,
     paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
   },
-  blob: { position: 'absolute', width: BLOB, height: BLOB, borderRadius: BLOB / 2, backgroundColor: '#DDE3F8', opacity: 0.55 },
+  blob: { position: 'absolute', width: BLOB, height: BLOB, borderRadius: BLOB / 2, backgroundColor: C.primary + '15', opacity: 0.55 },
   blobTR: { top: -BLOB * 0.35, right: -BLOB * 0.35 },
   blobBL: { bottom: -BLOB * 0.42, left: -BLOB * 0.38 },
   scroll: { flexGrow: 1, paddingHorizontal: 32, justifyContent: 'center', paddingVertical: 40 },
   iconArea: { alignItems: 'center', marginBottom: 32 },
   iconShadow: {
-    shadowColor: '#1A1F3A', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.25,
-    shadowRadius: 20, elevation: 12, borderRadius: 32, backgroundColor: '#FFF',
+    shadowColor: C.primary, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.25,
+    shadowRadius: 20, elevation: 12, borderRadius: 32, backgroundColor: C.surface,
   },
   iconImage: { width: 140, height: 140, borderRadius: 32 },
-  title: { textAlign: 'center', fontSize: 34, fontWeight: '800', color: '#1A1F3A', marginBottom: 12 },
-  titleBlue: { color: '#4F46E5' },
-  subtitle: { textAlign: 'center', fontSize: 15, color: '#64748B', lineHeight: 22, marginBottom: 48 },
+  title: { textAlign: 'center', fontSize: 34, fontWeight: '800', color: C.textPrimary, marginBottom: 12 },
+  titleBlue: { color: C.primary },
+  subtitle: { textAlign: 'center', fontSize: 15, color: C.textSecondary, lineHeight: 22, marginBottom: 48 },
   form: { width: '100%' },
-  label: { fontSize: 16, fontWeight: '700', color: '#1A1F3A', marginBottom: 4 },
-  labelSub: { fontSize: 13, color: '#94A3B8', marginBottom: 16 },
+  label: { fontSize: 16, fontWeight: '700', color: C.textPrimary, marginBottom: 4 },
+  labelSub: { fontSize: 13, color: C.textSecondary, marginBottom: 16 },
   inputWrapper: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFF',
-    borderRadius: 16, paddingHorizontal: 18, height: 58, borderWidth: 1.5, borderColor: '#E2E8F0',
+    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.surface,
+    borderRadius: 16, paddingHorizontal: 18, height: 58, borderWidth: 1.5, borderColor: C.border,
     marginBottom: 4,
     shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
-  inputFocused: { borderColor: '#4F46E5', shadowColor: '#4F46E5', shadowOpacity: 0.15, elevation: 4 },
-  inputError: { borderColor: '#EF4444' },
-  input: { flex: 1, fontSize: 16, color: '#1A1F3A', fontWeight: '500' },
-  errorText: { color: '#EF4444', fontSize: 13, marginBottom: 12 },
+  inputFocused: { borderColor: C.primary, shadowColor: C.primary, shadowOpacity: 0.15, elevation: 4 },
+  inputError: { borderColor: C.danger },
+  input: { flex: 1, fontSize: 16, color: C.textPrimary, fontWeight: '500' },
+  errorText: { color: C.danger, fontSize: 13, marginBottom: 12 },
   continueBtn: {
-    backgroundColor: '#4F46E5', borderRadius: 16, height: 58,
+    backgroundColor: '#FFFFFF', borderRadius: 16, height: 58,
     justifyContent: 'center', alignItems: 'center', marginTop: 8,
-    shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 14, elevation: 8,
+    shadowColor: '#FFFFFF', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 14, elevation: 8,
   },
-  continueBtnText: { color: '#FFF', fontSize: 17, fontWeight: '700', letterSpacing: 0.5 },
+  continueBtnText: { color: '#000000', fontSize: 17, fontWeight: '800', letterSpacing: 0.5 },
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 36, gap: 6 },
-  footerText: { fontSize: 13, color: '#94A3B8' },
+  footerText: { fontSize: 13, color: C.textSecondary },
 });

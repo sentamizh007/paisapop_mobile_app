@@ -9,7 +9,7 @@ import {
   clearAllTransactionsFromDB,
 } from '../db/database';
 
-export type Currency = 'INR' | 'USD';
+export type Currency = string;
 type Language = 'English' | 'Tamil' | 'Hindi' | 'Spanish' | 'French';
 export type Theme = 'dark' | 'light';
 
@@ -21,7 +21,10 @@ interface Settings {
   theme: Theme;
   monthlyBudget: number;
   categories: string[];
+  categoryMeta: Record<string, { emoji: string; color: string }>;
+  categoryBudgets: Record<string, { amount: number; period: 'monthly' | 'weekly' }>;
   userName: string | null;
+  shakeToAdd: boolean;
 }
 
 const DEFAULT_CATEGORIES = [
@@ -36,7 +39,10 @@ const DEFAULT_SETTINGS: Settings = {
   theme: 'light',
   monthlyBudget: 0,
   categories: DEFAULT_CATEGORIES,
+  categoryMeta: {},
+  categoryBudgets: {},
   userName: null,
+  shakeToAdd: true,
 };
 
 interface StoreState extends Settings {
@@ -64,7 +70,9 @@ interface StoreState extends Settings {
   setLanguage: (lang: Language) => void;
   setTheme: (theme: Theme) => void;
   setMonthlyBudget: (budget: number) => void;
-  addCategory: (category: string) => void;
+  addCategory: (category: string, meta?: { emoji: string; color: string }) => void;
+  setCategoryBudget: (category: string, budget: { amount: number; period: 'monthly' | 'weekly' }) => void;
+  setShakeToAdd: (enabled: boolean) => void;
 
   // Settings persistence
   loadSettings: () => Promise<void>;
@@ -75,7 +83,7 @@ const persistSettings = async (partial: Partial<Settings>) => {
     const existing = await AsyncStorage.getItem(SETTINGS_KEY);
     const current = existing ? JSON.parse(existing) : DEFAULT_SETTINGS;
     await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...current, ...partial }));
-  } catch (_) {}
+  } catch (_) { }
 };
 
 export const useStore = create<StoreState>((set, get) => ({
@@ -105,10 +113,13 @@ export const useStore = create<StoreState>((set, get) => ({
           theme: saved.theme ?? DEFAULT_SETTINGS.theme,
           monthlyBudget: saved.monthlyBudget ?? 0,
           categories: saved.categories ?? DEFAULT_CATEGORIES,
+          categoryMeta: saved.categoryMeta ?? {},
+          categoryBudgets: saved.categoryBudgets ?? {},
           userName: saved.userName ?? null,
+          shakeToAdd: saved.shakeToAdd ?? true,
         });
       }
-    } catch (_) {}
+    } catch (_) { }
   },
 
   // ── Transactions ─────────────────────────────────────────────────────────
@@ -200,9 +211,22 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ monthlyBudget });
     persistSettings({ monthlyBudget });
   },
-  addCategory: (category) => {
-    const categories = [...get().categories, category];
-    set({ categories });
-    persistSettings({ categories });
+  addCategory: (category, meta) => {
+    const categories = get().categories.includes(category) ? get().categories : [...get().categories, category];
+    const categoryMeta = { ...get().categoryMeta };
+    if (meta) {
+      categoryMeta[category] = meta;
+    }
+    set({ categories, categoryMeta });
+    persistSettings({ categories, categoryMeta });
+  },
+  setCategoryBudget: (category, budget) => {
+    const categoryBudgets = { ...get().categoryBudgets, [category]: budget };
+    set({ categoryBudgets });
+    persistSettings({ categoryBudgets });
+  },
+  setShakeToAdd: (shakeToAdd) => {
+    set({ shakeToAdd });
+    persistSettings({ shakeToAdd });
   },
 }));
