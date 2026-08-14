@@ -2,16 +2,19 @@ import React from 'react';
 import { View, Platform, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PlusCircle, Clock, BarChart3 } from 'lucide-react-native';
+import { PlusCircle, Clock, BarChart3, User } from 'lucide-react-native';
 import { AddExpenseScreen } from '../screens/main/AddExpenseScreen';
 import { HistoryScreen } from '../screens/main/HistoryScreen';
 import { AnalyticsScreen } from '../screens/main/AnalyticsScreen';
+import { ProfileScreen } from '../screens/main/ProfileScreen';
 import { darkColors as C } from '../theme/colors';
+import { useStore } from '../store/useStore';
 
 export type TabParamList = {
   Add: undefined;
   History: undefined;
   Analytics: undefined;
+  Profile: undefined;
 };
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -22,6 +25,7 @@ export const TabNavigator = () => {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 6 : 0);
   const tabBarHeight = TAB_H + bottomPad;
+  const userName = useStore(s => s.userName);
 
   return (
     <Tab.Navigator
@@ -90,6 +94,20 @@ export const TabNavigator = () => {
           tabBarLabel: 'Analytics',
           tabBarIcon: ({ color, focused }) => (
             <BarChart3
+              size={focused ? 26 : 23}
+              color={color}
+              strokeWidth={focused ? 2.2 : 1.8}
+            />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          tabBarLabel: userName || 'Profile',
+          tabBarIcon: ({ color, focused }) => (
+            <User
               size={focused ? 26 : 23}
               color={color}
               strokeWidth={focused ? 2.2 : 1.8}

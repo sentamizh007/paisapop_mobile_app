@@ -95,10 +95,10 @@ const SpendingLineChart = ({
 export const AnalyticsScreen = () => {
   const C = useThemeColors();
   const transactions = useStore(s => s.transactions);
-  const currency     = useStore(s => s.currency);
+  const currency = useStore(s => s.currency);
   const categoryMeta = useStore(s => s.categoryMeta);
   const categoryBudgets = useStore(s => s.categoryBudgets);
-  const sym          = currency === 'USD' ? '$' : '₹';
+  const sym = currency === 'USD' ? '$' : '₹';
 
   const [activeMonth, setActiveMonth] = useState(new Date());
   const monthLabel = `${MONTH_NAMES[activeMonth.getMonth()]} ${activeMonth.getFullYear()}`;
@@ -134,8 +134,20 @@ export const AnalyticsScreen = () => {
     [transactions, activeMonth]
   );
 
+  const monthTransfer = useMemo(() =>
+    transactions.filter(tx => {
+      if (tx.type !== 'transfer') return false;
+      const d = parseDate(tx.date);
+      return !isNaN(d.getTime()) &&
+        d.getFullYear() === activeMonth.getFullYear() &&
+        d.getMonth() === activeMonth.getMonth();
+    }),
+    [transactions, activeMonth]
+  );
+
   const totalSpent = useMemo(() => monthExpenses.reduce((s, tx) => s + tx.amount, 0), [monthExpenses]);
   const totalIncome = useMemo(() => monthIncome.reduce((s, tx) => s + tx.amount, 0), [monthIncome]);
+  const totalTransfer = useMemo(() => monthTransfer.reduce((s, tx) => s + tx.amount, 0), [monthTransfer]);
   const netBalance = totalIncome - totalSpent;
 
   const categoryTotals = useMemo(() => {
@@ -228,6 +240,13 @@ export const AnalyticsScreen = () => {
             <Text style={[styles.netLabel, { color: C.textSecondary }]}>Income</Text>
             <Text style={[styles.netValue, { color: C.income }]}>
               +{sym}{totalIncome.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Text>
+          </View>
+          <View style={[styles.netDivider, { backgroundColor: C.border }]} />
+          <View style={styles.netItem}>
+            <Text style={[styles.netLabel, { color: C.textSecondary }]}>Transfers</Text>
+            <Text style={[styles.netValue, { color: '#14B8A6' }]}>
+              {sym}{totalTransfer.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Text>
           </View>
 

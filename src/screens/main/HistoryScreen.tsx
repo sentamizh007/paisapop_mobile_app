@@ -9,8 +9,6 @@ import { useThemeColors } from '../../theme/colors';
 import { Settings, Menu, X, Search, TrendingDown, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { MONTH_NAMES } from '../../utils/exportUtils';
 import { TransactionCard } from '../../components/TransactionCard';
-import { SettingsModal } from '../../components/SettingsModal';
-
 type FilterType = 'Today' | 'This Week' | 'This Month' | 'All';
 const FILTERS: FilterType[] = ['Today', 'This Week', 'This Month', 'All'];
 
@@ -42,23 +40,30 @@ export const HistoryScreen = () => {
   const C = useThemeColors();
   const {
     transactions, removeTransaction, clearAllTransactions,
-    currency, setCurrency,
-    monthlyBudget, setMonthlyBudget,
-    categories, addCategory,
-    categoryBudgets, setCategoryBudget, categoryMeta,
-    isLoading,
+    monthlyBudget,
+    categoryBudgets, categoryMeta,
+    isLoading, userName,
   } = useStore();
 
   // setTheme & theme removed — app is always dark
   const theme = 'dark' as const;
   const setTheme = (_: any) => { };
 
-  const [filter, setFilter] = useState<FilterType>('This Month');
+  const [filter, setFilter] = useState<FilterType>('Today');
   const [search, setSearch] = useState('');
-  const [showSettings, setShowSettings] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
 
+  const currency = useStore(s => s.currency);
   const sym = currency === 'USD' ? '$' : '₹';
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return { text: 'Good morning', icon: '☀️' };
+    if (hour < 17) return { text: 'Good afternoon', icon: '🌤️' };
+    if (hour < 21) return { text: 'Good evening', icon: '🌙' };
+    return { text: 'Good night', icon: '🌌' };
+  };
+  const greeting = getGreeting();
 
   // ── Filtering ──────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -147,26 +152,6 @@ export const HistoryScreen = () => {
     );
   }, [removeTransaction]);
 
-  const confirmClearAll = () => {
-    setShowSettings(false);
-    setTimeout(() => {
-      if (Platform.OS === 'web') {
-        if (window.confirm('Clear All Data\n\nThis will permanently delete ALL transaction records. This cannot be undone.')) {
-          clearAllTransactions();
-        }
-        return;
-      }
-      Alert.alert(
-        'Clear All Data',
-        'This will permanently delete ALL transaction records. This cannot be undone.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Clear Everything', style: 'destructive', onPress: clearAllTransactions },
-        ]
-      );
-    }, 350);
-  };
-
   // ── Section list item ─────────────────────────────────────────────────────
   const renderItem = ({ item: tx }: { item: typeof transactions[0] }) => (
     <TransactionCard
@@ -212,19 +197,20 @@ export const HistoryScreen = () => {
           </View>
         ) : (
           <>
-            <Text style={[styles.headerTitle, { color: C.textPrimary }]}>History</Text>
+            <View>
+              <Text style={{ fontSize: 13, color: C.textSecondary, fontWeight: '600', marginBottom: 2 }}>
+                {greeting.text} {greeting.icon}
+              </Text>
+              <Text style={[styles.headerTitle, { color: C.textPrimary }]}>
+                {userName || 'Guest'}
+              </Text>
+            </View>
             <View style={styles.headerRight}>
               <TouchableOpacity
                 style={[styles.iconBtn, { backgroundColor: C.surface }]}
                 onPress={() => setShowSearch(true)}
               >
                 <Search size={16} color={C.textPrimary} strokeWidth={2} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.iconBtn, { backgroundColor: C.surface }]}
-                onPress={() => setShowSettings(true)}
-              >
-                <Menu size={16} color={C.textPrimary} strokeWidth={2} />
               </TouchableOpacity>
             </View>
           </>
@@ -291,9 +277,9 @@ export const HistoryScreen = () => {
           </View>
         )}
         {monthlyBudget <= 0 && (
-          <TouchableOpacity onPress={() => setShowSettings(true)} style={styles.setBudgetBtn}>
-            <Text style={[styles.setBudgetText, { color: C.primary }]}>+ Set a monthly budget</Text>
-          </TouchableOpacity>
+          <View style={styles.setBudgetBtn}>
+            <Text style={[styles.setBudgetText, { color: C.textSecondary }]}>No monthly budget set (Set in Profile)</Text>
+          </View>
         )}
       </View>
 
@@ -348,26 +334,6 @@ export const HistoryScreen = () => {
           keyboardShouldPersistTaps="handled"
         />
       )}
-
-      {/* ── Settings modal ── */}
-      <SettingsModal
-        visible={showSettings}
-        onClose={() => setShowSettings(false)}
-        colors={C}
-        theme={theme}
-        setTheme={setTheme}
-        currency={currency}
-        setCurrency={setCurrency}
-        currencySymbol={sym}
-        monthlyBudget={monthlyBudget}
-        setMonthlyBudget={setMonthlyBudget}
-        categories={categories}
-        addCategory={addCategory}
-        categoryBudgets={categoryBudgets}
-        setCategoryBudget={setCategoryBudget}
-        confirmClearAll={confirmClearAll}
-        transactions={transactions}
-      />
     </SafeAreaView>
   );
 };

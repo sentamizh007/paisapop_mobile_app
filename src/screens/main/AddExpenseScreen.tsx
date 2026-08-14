@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform,
   SafeAreaView, StatusBar as RNStatusBar, Modal, TextInput, Alert, Dimensions,
 } from 'react-native';
-import { Delete, FileText, X, ArrowDown, ArrowUp } from 'lucide-react-native';
+import { Delete, FileText, X, ArrowDown, ArrowUp, ArrowRightLeft } from 'lucide-react-native';
 import { useThemeColors } from '../../theme/colors';
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -14,11 +14,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: W, height: H } = Dimensions.get('window');
 const isSmall = H < 700;
+// Dynamic category limit: ~100px per pill + 32px padding
+const MAX_VISIBLE_CATS = Math.max(3, Math.floor((W - 32) / 100));
 
 // Tab bar height constant — must match TabNavigator's TAB_H
 const TAB_BAR_H = 60;
 
-type TxType = 'expense' | 'income';
+type TxType = 'expense' | 'income' | 'transfer';
 
 export const AddExpenseScreen = () => {
   const storeCategories = useStore(s => s.categories);
@@ -41,10 +43,13 @@ export const AddExpenseScreen = () => {
   const [tempNote, setTempNote] = useState('');
   const [savedOk, setSavedOk] = useState(false);
   const [txType, setTxType] = useState<TxType>('expense');
+  const [paymentMode, setPaymentMode] = useState('Cash');
+  const [showAllCats, setShowAllCats] = useState(false);
 
   const sym = currency === 'USD' ? '$' : '₹';
   const isExpense = txType === 'expense';
-  const accentColor = isExpense ? C.expense : C.income;
+  const isTransfer = txType === 'transfer';
+  const accentColor = isExpense ? C.expense : (isTransfer ? '#14B8A6' : C.income);
 
   // ── Keypad handler ─────────────────────────────────────────────────────────
   const handleKey = (key: string) => {
@@ -69,6 +74,7 @@ export const AddExpenseScreen = () => {
         date: dStr,
         time: tStr,
         type: txType,
+        paymentMethod: paymentMode,
         notes: note.trim() || undefined,
       });
       setAmountStr('0');
@@ -138,10 +144,10 @@ export const AddExpenseScreen = () => {
       <View style={[styles.amountCard, { backgroundColor: C.surface }]}>
         {/* Amount — centered */}
         <Text style={[styles.amountLabel, { color: C.textSecondary }]}>
-          {isExpense ? 'Amount to debit' : 'Amount to credit'}
+          {isExpense ? 'Amount to debit' : isTransfer ? 'Amount to transfer' : 'Amount to credit'}
         </Text>
         <Text
-          style={[styles.amountText, { color: isExpense ? C.textPrimary : C.income }]}
+          style={[styles.amountText, { color: isExpense ? C.textPrimary : (isTransfer ? '#14B8A6' : C.income) }]}
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.5}
@@ -153,18 +159,20 @@ export const AddExpenseScreen = () => {
         <View style={styles.cardActions}>
           <TouchableOpacity
             style={[styles.typeToggle, {
-              backgroundColor: isExpense ? C.expense + '1A' : C.income + '1A',
+              backgroundColor: isExpense ? C.expense + '1A' : (isTransfer ? '#14B8A61A' : C.income + '1A'),
               borderColor: accentColor + '40',
             }]}
-            onPress={() => setTxType(p => p === 'expense' ? 'income' : 'expense')}
+            onPress={() => setTxType(p => p === 'expense' ? 'income' : (p === 'income' ? 'transfer' : 'expense'))}
             activeOpacity={0.7}
           >
             {isExpense
               ? <ArrowDown size={13} color={C.expense} strokeWidth={2.5} />
+              : isTransfer
+              ? <ArrowRightLeft size={13} color="#14B8A6" strokeWidth={2.5} />
               : <ArrowUp size={13} color={C.income} strokeWidth={2.5} />
             }
             <Text style={[styles.typeToggleText, { color: accentColor }]}>
-              {isExpense ? 'Debit' : 'Credit'}
+              {isExpense ? 'Debit' : isTransfer ? 'Transfer' : 'Credit'}
             </Text>
           </TouchableOpacity>
 
@@ -190,6 +198,31 @@ export const AddExpenseScreen = () => {
         </View>
       </View>
 
+      {/* ── Payment Mode pills ── */}
+      <View style={styles.categoryWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+          {['Cash', 'Card', 'UPI', 'Bank'].map(mode => {
+            const active = paymentMode === mode;
+            return (
+              <TouchableOpacity
+                key={mode}
+                style={[
+                  styles.categoryPill,
+                  { backgroundColor: active ? C.primary + '22' : C.surfaceMid },
+                  active && { borderColor: C.primary + '80' },
+                ]}
+                onPress={() => setPaymentMode(mode)}
+                activeOpacity={0.65}
+              >
+                <Text style={[styles.catLabel, { color: active ? C.primary : C.textSecondary }]}>
+                  {mode}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       {/* ── Category pills ── */}
       <View style={styles.categoryWrapper}>
         <ScrollView
@@ -197,7 +230,7 @@ export const AddExpenseScreen = () => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoryScroll}
         >
-          {storeCategories.map(item => {
+          {(showAllCats ? storeCategories : storeCategories.slice(0, MAX_VISIBLE_CATS)).map(item => {
             const meta = categoryMeta?.[item];
             const col = meta?.color ?? getCategoryColor(item as Category) ?? C.primary;
             const active = selectedCategory === item;
@@ -225,6 +258,20 @@ export const AddExpenseScreen = () => {
               </TouchableOpacity>
             );
           })}
+          {!showAllCats && storeCategories.length > MAX_VISIBLE_CATS && (
+            <TouchableOpacity
+              style={[
+                styles.categoryPill,
+                { backgroundColor: C.surfaceMid }
+              ]}
+              onPress={() => setShowAllCats(true)}
+              activeOpacity={0.65}
+            >
+              <Text style={[styles.catLabel, { color: C.textSecondary }]}>
+                +{storeCategories.length - MAX_VISIBLE_CATS} more
+              </Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
       </View>
 
@@ -244,7 +291,7 @@ export const AddExpenseScreen = () => {
               activeOpacity={0.5}
             >
               {isBack
-                ? <Delete color={C.textSecondary} size={18} strokeWidth={2} />
+                ? <Delete color={C.textSecondary} size={22} strokeWidth={2} />
                 : <Text style={[
                   styles.keyText,
                   { color: isDecimal ? C.textSecondary : C.textPrimary },
@@ -261,14 +308,14 @@ export const AddExpenseScreen = () => {
       <View style={[styles.footer, { paddingBottom: bottomPad + TAB_BAR_H + 8 }]}>
         <TouchableOpacity
           style={[styles.saveBtn, {
-            backgroundColor: C.textPrimary,
+            backgroundColor: (amountStr === '0' || amountStr === '') ? C.surfaceMid : C.textPrimary,
             opacity: isLoading ? 0.7 : 1,
           }]}
           onPress={handleSave}
-          disabled={isLoading || savedOk}
+          disabled={isLoading || savedOk || amountStr === '0' || amountStr === ''}
           activeOpacity={0.82}
         >
-          <Text style={[styles.saveBtnText, { color: C.background }]}>
+          <Text style={[styles.saveBtnText, { color: (amountStr === '0' || amountStr === '') ? C.textSecondary : C.background }]}>
             {savedOk ? '✓  Saved!' : isLoading ? 'Saving…' : 'Save'}
           </Text>
         </TouchableOpacity>
@@ -333,10 +380,10 @@ export const AddExpenseScreen = () => {
 
 // ── Dimensions ─────────────────────────────────────────────────────────────
 const KEY_COLS = 3;
-const KEYPAD_GAP = 6;
+const KEYPAD_GAP = 12;
 const KEYPAD_PX = 16;
 const KEY_W = Math.floor((W - KEYPAD_PX * 2 - KEYPAD_GAP * (KEY_COLS - 1)) / KEY_COLS);
-const KEY_H = isSmall ? 46 : 52;
+const KEY_H = isSmall ? 56 : 64;
 
 const styles = StyleSheet.create({
   safe: {
@@ -450,11 +497,11 @@ const styles = StyleSheet.create({
   key: {
     width: KEY_W,
     height: KEY_H,
-    borderRadius: 12,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  keyText: { fontSize: isSmall ? 20 : 22, fontWeight: '400' },
+  keyText: { fontSize: isSmall ? 24 : 28, fontWeight: '500' },
 
   // ── Save footer ──
   footer: {

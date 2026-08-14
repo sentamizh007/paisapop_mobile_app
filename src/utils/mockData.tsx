@@ -26,7 +26,7 @@ export interface Transaction {
   category: Category;
   date: string;
   time?: string;
-  type: 'expense' | 'income';
+  type: 'expense' | 'income' | 'transfer';
   paymentMethod?: string;
   notes?: string;
 }

@@ -7,6 +7,10 @@ import { useThemeColors } from './src/theme/colors';
 import { initDB } from './src/db/database';
 import { useStore } from './src/store/useStore';
 import { View, ActivityIndicator, Text, StatusBar, TouchableOpacity } from 'react-native';
+import { ShakeDetector } from './src/components/ShakeDetector';
+import * as SplashScreen from 'expo-splash-screen';
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function AppInner() {
   const [ready, setReady] = useState(false);
@@ -29,6 +33,7 @@ function AppInner() {
       setError(e?.message ?? 'Failed to initialize app');
     } finally {
       setReady(true);
+      SplashScreen.hideAsync().catch(() => {});
     }
   }, [loadSettings, loadTransactions]);
 
@@ -37,12 +42,7 @@ function AppInner() {
   }, [setup]);
 
   if (!ready) {
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', gap: 16 }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Loading...</Text>
-      </View>
-    );
+    return null;
   }
 
   if (error) {
@@ -78,8 +78,10 @@ function AppInner() {
 
   return (
     <NavigationContainer theme={navTheme}>
-      <RootNavigator />
-      <StatusBar barStyle="light-content" backgroundColor="#09090B" />
+      <ShakeDetector>
+        <RootNavigator />
+        <StatusBar barStyle="light-content" backgroundColor="#09090B" />
+      </ShakeDetector>
     </NavigationContainer>
   );
 }

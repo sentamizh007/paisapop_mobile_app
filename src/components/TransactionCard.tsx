@@ -22,6 +22,16 @@ export const TransactionCard = React.memo(({
   const meta = categoryMeta?.[tx.category];
   const col = meta?.color ?? getCategoryColor(tx.category as Category) ?? '#FFFFFF';
 
+  const getPaymentEmoji = (method?: string) => {
+    switch (method) {
+      case 'Cash': return '💵';
+      case 'Card': return '💳';
+      case 'UPI': return '📱';
+      case 'Bank': return '🏦';
+      default: return '';
+    }
+  };
+
   return (
     <TouchableOpacity
       style={[styles.card, { backgroundColor: colors.surface }]}
@@ -57,6 +67,7 @@ export const TransactionCard = React.memo(({
           </View>
         </View>
         <Text style={[styles.time, { color: colors.textSecondary }]}>
+          {tx.paymentMethod ? `${getPaymentEmoji(tx.paymentMethod)} ${tx.paymentMethod} • ` : ''}
           {tx.time ? tx.time : formatDisplayDate(tx.date)}
         </Text>
       </View>
