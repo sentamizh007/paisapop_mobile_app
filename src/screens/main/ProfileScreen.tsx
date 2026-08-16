@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Switch, TextInput,
-  ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, SafeAreaView, Alert
+  ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert
 } from 'react-native';
 import { ChevronRight, Download, Trash2, LogOut, User } from 'lucide-react-native';
 import { MONTH_NAMES } from '../../utils/exportUtils';
 import { exportAndShare } from '../../utils/exportUtils';
 import { Currency, Theme, useStore } from '../../store/useStore';
 import { useThemeColors } from '../../theme/colors';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar as RNStatusBar } from 'react-native';
 
 const CURRENCIES: { label: string; value: Currency; symbol: string }[] = [
@@ -104,6 +104,19 @@ export const ProfileScreen = () => {
       Alert.alert('Clear All Data', 'Are you sure you want to delete all transactions? This cannot be undone.', [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Delete', style: 'destructive', onPress: clearAllTransactions }
+      ]);
+    }
+  };
+
+  const confirmLogout = () => {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to log out?')) {
+        logout();
+      }
+    } else {
+      Alert.alert('Log Out', 'Are you sure you want to log out?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Log Out', style: 'destructive', onPress: logout }
       ]);
     }
   };
@@ -406,7 +419,7 @@ export const ProfileScreen = () => {
 
           <TouchableOpacity
             style={[styles.settingRow, styles.dangerRow, { borderColor: '#FEE2E2', marginTop: 12 }]}
-            onPress={logout}
+            onPress={confirmLogout}
           >
             <View style={styles.settingLeft}>
               <LogOut size={17} color="#EF4444" />
@@ -425,8 +438,8 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10 },
   headerTitle: { fontSize: 24, fontWeight: '800', letterSpacing: -0.3 },
 
-  settingSection: { fontSize: 12, fontWeight: '800', letterSpacing: 1, marginTop: 24, marginBottom: 12 },
-  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth },
+  settingSection: { fontSize: 14, fontWeight: '800', letterSpacing: 1, marginTop: 30, marginBottom: 20 },
+  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18, borderBottomWidth: StyleSheet.hairlineWidth },
   settingLabel: { fontSize: 16, fontWeight: '600' },
   settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   settingRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },

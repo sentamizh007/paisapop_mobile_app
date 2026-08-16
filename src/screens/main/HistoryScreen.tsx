@@ -6,9 +6,10 @@ import {
 } from 'react-native';
 import { useStore } from '../../store/useStore';
 import { useThemeColors } from '../../theme/colors';
-import { Settings, Menu, X, Search, TrendingDown, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { X, Search, TrendingDown, AlertCircle } from 'lucide-react-native';
 import { MONTH_NAMES } from '../../utils/exportUtils';
 import { TransactionCard } from '../../components/TransactionCard';
+import { getCurrencySymbol } from '../../utils/mockData';
 type FilterType = 'Today' | 'This Week' | 'This Month' | 'All';
 const FILTERS: FilterType[] = ['Today', 'This Week', 'This Month', 'All'];
 
@@ -45,16 +46,12 @@ export const HistoryScreen = () => {
     isLoading, userName,
   } = useStore();
 
-  // setTheme & theme removed — app is always dark
-  const theme = 'dark' as const;
-  const setTheme = (_: any) => { };
-
   const [filter, setFilter] = useState<FilterType>('Today');
   const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
 
   const currency = useStore(s => s.currency);
-  const sym = currency === 'USD' ? '$' : '₹';
+  const sym = getCurrencySymbol(currency);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -100,9 +97,9 @@ export const HistoryScreen = () => {
     return Object.entries(groups).map(([title, data]) => ({ title, data }));
   }, [filtered]);
 
-  const { monthSpent, monthIncome, monthCategoryTotals } = useMemo(() => {
+const { monthSpent, monthIncome, monthTransfer, monthCategoryTotals } = useMemo(() => {
     const now = new Date();
-    let spent = 0, income = 0;
+    let spent = 0, income = 0, transfer = 0;
     const categorySpentMap: Record<string, number> = {};
     transactions.forEach(tx => {
       const d = parseDate(tx.date);
@@ -112,12 +109,14 @@ export const HistoryScreen = () => {
         if (tx.type === 'expense') {
           spent += tx.amount;
           categorySpentMap[tx.category] = (categorySpentMap[tx.category] || 0) + tx.amount;
+        } else if (tx.type === 'transfer') {
+          transfer += tx.amount;
         } else {
           income += tx.amount;
         }
       }
     });
-    return { monthSpent: spent, monthIncome: income, monthCategoryTotals: categorySpentMap };
+    return { monthSpent: spent, monthIncome: income, monthTransfer: transfer, monthCategoryTotals: categorySpentMap };
   }, [transactions]);
 
   const budgetProgress = monthlyBudget > 0 ? Math.min(monthSpent / monthlyBudget, 1) : 0;
@@ -227,6 +226,15 @@ export const HistoryScreen = () => {
             </Text>
             <Text style={[styles.summaryAmount, { color: '#FFFFFF' }]}>
               {sym}{monthSpent.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Text>
+          </View>
+          {/* Divider */}
+          <View style={[styles.summaryDivider, { backgroundColor: C.border }]} />
+          {/* Transfer */}
+          <View style={styles.summaryItem}>
+            <Text style={[styles.summaryLabel, { color: C.textSecondary }]}>Transfer</Text>
+            <Text style={[styles.summaryAmount, { color: '#14B8A6' }]}>
+              {sym}{monthTransfer.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Text>
           </View>
           {/* Divider */}

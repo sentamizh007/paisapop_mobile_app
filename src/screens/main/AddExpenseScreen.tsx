@@ -8,7 +8,7 @@ import { useThemeColors } from '../../theme/colors';
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { TabParamList } from '../../navigation/TabNavigator';
-import { Category, getCategoryIcon, getCategoryColor } from '../../utils/mockData';
+import { Category, getCategoryIcon, getCategoryColor, getCurrencySymbol } from '../../utils/mockData';
 import { useStore } from '../../store/useStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -43,10 +43,10 @@ export const AddExpenseScreen = () => {
   const [tempNote, setTempNote] = useState('');
   const [savedOk, setSavedOk] = useState(false);
   const [txType, setTxType] = useState<TxType>('expense');
-  const [paymentMode, setPaymentMode] = useState('Cash');
+  const [paymentMode, setPaymentMode] = useState('');
   const [showAllCats, setShowAllCats] = useState(false);
 
-  const sym = currency === 'USD' ? '$' : '₹';
+  const sym = getCurrencySymbol(currency);
   const isExpense = txType === 'expense';
   const isTransfer = txType === 'transfer';
   const accentColor = isExpense ? C.expense : (isTransfer ? '#14B8A6' : C.income);
@@ -93,6 +93,10 @@ export const AddExpenseScreen = () => {
     const amount = parseFloat(amountStr);
     if (isNaN(amount) || amount <= 0) {
       Alert.alert('Invalid Amount', 'Please enter an amount greater than zero.');
+      return;
+    }
+    if (!paymentMode) {
+      Alert.alert('Select Payment Mode', 'Please choose Cash, Card, UPI, or Bank.');
       return;
     }
     const now = new Date();
@@ -168,8 +172,8 @@ export const AddExpenseScreen = () => {
             {isExpense
               ? <ArrowDown size={13} color={C.expense} strokeWidth={2.5} />
               : isTransfer
-              ? <ArrowRightLeft size={13} color="#14B8A6" strokeWidth={2.5} />
-              : <ArrowUp size={13} color={C.income} strokeWidth={2.5} />
+                ? <ArrowRightLeft size={13} color="#14B8A6" strokeWidth={2.5} />
+                : <ArrowUp size={13} color={C.income} strokeWidth={2.5} />
             }
             <Text style={[styles.typeToggleText, { color: accentColor }]}>
               {isExpense ? 'Debit' : isTransfer ? 'Transfer' : 'Credit'}
@@ -306,16 +310,16 @@ export const AddExpenseScreen = () => {
 
       {/* ── Save button ── */}
       <View style={[styles.footer, { paddingBottom: bottomPad + TAB_BAR_H + 8 }]}>
-        <TouchableOpacity
+      <TouchableOpacity
           style={[styles.saveBtn, {
-            backgroundColor: (amountStr === '0' || amountStr === '') ? C.surfaceMid : C.textPrimary,
+            backgroundColor: (amountStr === '0' || amountStr === '' || !paymentMode) ? C.surfaceMid : C.textPrimary,
             opacity: isLoading ? 0.7 : 1,
           }]}
           onPress={handleSave}
-          disabled={isLoading || savedOk || amountStr === '0' || amountStr === ''}
+          disabled={isLoading || savedOk || amountStr === '0' || amountStr === '' || !paymentMode}
           activeOpacity={0.82}
         >
-          <Text style={[styles.saveBtnText, { color: (amountStr === '0' || amountStr === '') ? C.textSecondary : C.background }]}>
+          <Text style={[styles.saveBtnText, { color: (amountStr === '0' || amountStr === '' || !paymentMode) ? C.textSecondary : C.background }]}>
             {savedOk ? '✓  Saved!' : isLoading ? 'Saving…' : 'Save'}
           </Text>
         </TouchableOpacity>

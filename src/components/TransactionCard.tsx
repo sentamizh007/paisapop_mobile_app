@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { FileText } from 'lucide-react-native';
+import { FileText, ArrowRightLeft } from 'lucide-react-native';
 import { getCategoryColor, getCategoryIcon, Category, Transaction } from '../utils/mockData';
 
 interface Props {
@@ -16,11 +16,12 @@ interface Props {
 export const TransactionCard = React.memo(({
   tx, colors, currencySymbol, confirmDelete, formatDisplayDate, categoryMeta, isOverBudget
 }: Props) => {
-  const isIncome = tx.type === 'income';
-  const amtPrefix = isIncome ? '+' : '';
-  const amtColor = isIncome ? colors.income : colors.expense;
+  const isIncome   = tx.type === 'income';
+  const isTransfer = tx.type === 'transfer';
+  const amtPrefix  = isIncome ? '+' : isTransfer ? '' : '';
+  const amtColor   = isIncome ? colors.income : isTransfer ? '#14B8A6' : colors.expense;
   const meta = categoryMeta?.[tx.category];
-  const col = meta?.color ?? getCategoryColor(tx.category as Category) ?? '#FFFFFF';
+  const col  = isTransfer ? '#14B8A6' : (meta?.color ?? getCategoryColor(tx.category as Category) ?? '#FFFFFF');
 
   const getPaymentEmoji = (method?: string) => {
     switch (method) {
@@ -41,7 +42,9 @@ export const TransactionCard = React.memo(({
     >
       {/* ── Icon ── */}
       <View style={[styles.iconWrap, { backgroundColor: col + '1E' }]}>
-        {meta?.emoji ? (
+        {isTransfer ? (
+          <ArrowRightLeft size={19} color="#14B8A6" strokeWidth={2} />
+        ) : meta?.emoji ? (
           <Text style={{ fontSize: 19 }}>{meta.emoji}</Text>
         ) : (
           getCategoryIcon(tx.category as Category, col, 19)
@@ -54,15 +57,17 @@ export const TransactionCard = React.memo(({
           <Text style={[styles.category, { color: colors.textPrimary }]} numberOfLines={1}>
             {tx.category}
           </Text>
-          {isOverBudget && !isIncome ? (
+          {isOverBudget && !isIncome && !isTransfer ? (
             <View style={[styles.badge, { backgroundColor: colors.expense + '20', marginRight: 6 }]}>
               <Text style={[styles.badgeText, { color: colors.expense }]}>Over Limit</Text>
             </View>
           ) : null}
-          {/* Credit / Debit badge */}
-          <View style={[styles.badge, { backgroundColor: isIncome ? colors.income + '18' : colors.expense + '18' }]}>
+          {/* Credit / Debit / Transfer badge */}
+          <View style={[styles.badge, {
+            backgroundColor: isTransfer ? '#14B8A6' + '20' : isIncome ? colors.income + '18' : colors.expense + '18',
+          }]}>
             <Text style={[styles.badgeText, { color: amtColor }]}>
-              {isIncome ? 'Income' : 'Expense'}
+              {isTransfer ? '⇄ Transfer' : isIncome ? 'Income' : 'Expense'}
             </Text>
           </View>
         </View>

@@ -11,8 +11,8 @@ import { darkColors as C } from '../theme/colors';
 import { useStore } from '../store/useStore';
 
 export type TabParamList = {
-  Add: undefined;
   History: undefined;
+  Add: undefined;
   Analytics: undefined;
   Profile: undefined;
 };
@@ -60,12 +60,12 @@ export const TabNavigator = () => {
       })}
     >
       <Tab.Screen
-        name="Add"
-        component={AddExpenseScreen}
+        name="History"
+        component={HistoryScreen}
         options={{
-          tabBarLabel: 'Add',
+          tabBarLabel: 'History',
           tabBarIcon: ({ color, focused }) => (
-            <PlusCircle
+            <Clock
               size={focused ? 26 : 23}
               color={color}
               strokeWidth={focused ? 2.2 : 1.8}
@@ -74,12 +74,12 @@ export const TabNavigator = () => {
         }}
       />
       <Tab.Screen
-        name="History"
-        component={HistoryScreen}
+        name="Add"
+        component={AddExpenseScreen}
         options={{
-          tabBarLabel: 'History',
+          tabBarLabel: 'Add',
           tabBarIcon: ({ color, focused }) => (
-            <Clock
+            <PlusCircle
               size={focused ? 26 : 23}
               color={color}
               strokeWidth={focused ? 2.2 : 1.8}
@@ -101,6 +101,7 @@ export const TabNavigator = () => {
           ),
         }}
       />
+
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}

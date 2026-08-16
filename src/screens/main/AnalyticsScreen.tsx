@@ -6,16 +6,13 @@ import {
 import Svg, { Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useThemeColors } from '../../theme/colors';
 import { useStore } from '../../store/useStore';
-import { getCategoryColor, getCategoryIcon, Category } from '../../utils/mockData';
+import { getCategoryColor, getCategoryIcon, Category, getCurrencySymbol } from '../../utils/mockData';
 import { DonutChart } from '../../components/DonutChart';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { MONTH_NAMES } from '../../utils/exportUtils';
 
 const { width: SW } = Dimensions.get('window');
 
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const parseDate = (ds: string) => {
@@ -98,7 +95,7 @@ export const AnalyticsScreen = () => {
   const currency = useStore(s => s.currency);
   const categoryMeta = useStore(s => s.categoryMeta);
   const categoryBudgets = useStore(s => s.categoryBudgets);
-  const sym = currency === 'USD' ? '$' : '₹';
+  const sym = getCurrencySymbol(currency);
 
   const [activeMonth, setActiveMonth] = useState(new Date());
   const monthLabel = `${MONTH_NAMES[activeMonth.getMonth()]} ${activeMonth.getFullYear()}`;

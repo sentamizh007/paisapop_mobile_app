@@ -1,6 +1,18 @@
 import React from 'react';
 import { Utensils, MonitorPlay, Car, ShoppingBag, Zap, HeartPulse, Film, BookOpen, Airplay, ShoppingCart, Coffee, Gift, Home, PiggyBank, MoreHorizontal } from 'lucide-react-native';
 
+/** Maps a currency code to its display symbol. Falls back to the code itself. */
+export const getCurrencySymbol = (currency: string): string => {
+  const MAP: Record<string, string> = {
+    USD: '$', EUR: '€', GBP: '£', INR: '₹', JPY: '¥',
+    CAD: 'C$', AUD: 'A$', CHF: 'CHF', CNY: '¥', SEK: 'kr',
+    NZD: 'NZ$', MXN: '$', SGD: 'S$', HKD: 'HK$', KRW: '₩',
+    TRY: '₺', RUB: '₽', ZAR: 'R', BRL: 'R$', IDR: 'Rp',
+    PHP: '₱', MYR: 'RM', THB: '฿',
+  };
+  return MAP[currency] ?? currency;
+};
+
 export type Category =
   | 'Food'
   | 'Transport'

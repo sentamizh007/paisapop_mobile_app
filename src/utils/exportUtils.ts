@@ -1,9 +1,9 @@
-import { File, Paths } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 import { Transaction } from './mockData';
 
-const MONTH_NAMES = [
+export const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
@@ -88,15 +88,17 @@ export const exportAndShare = async (
       return { success: true };
     }
 
-    const docDir = Paths.document;
+    // Use the stable FileSystem API (available in expo-file-system v57)
+    const docDir = FileSystem.documentDirectory;
     if (!docDir) {
       return { success: false, error: 'Document directory is not accessible on this device.' };
     }
 
-    const file = new File(docDir, filename);
+    const fileUri = docDir + filename;
 
-    file.write(csv);
-    const fileUri = file.uri;
+    await FileSystem.writeAsStringAsync(fileUri, csv, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
 
     const canShare = await Sharing.isAvailableAsync();
     if (!canShare) {
@@ -114,5 +116,3 @@ export const exportAndShare = async (
     return { success: false, error: e?.message ?? 'Export failed' };
   }
 };
-
-export { MONTH_NAMES };
