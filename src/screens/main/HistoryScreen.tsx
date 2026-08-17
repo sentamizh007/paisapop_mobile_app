@@ -2,18 +2,17 @@ import React, { useMemo, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar,
   TouchableOpacity, TextInput, Alert, SectionList,
-  ActivityIndicator,
+  ActivityIndicator, Modal, ScrollView,
 } from 'react-native';
 import { useStore } from '../../store/useStore';
 import { useThemeColors } from '../../theme/colors';
-import { X, Search, TrendingDown, AlertCircle } from 'lucide-react-native';
+import { X, Search, Filter, Calendar, ChevronDown, ChevronLeft, ChevronRight, PieChart, ArrowDown, ArrowUp } from 'lucide-react-native';
 import { MONTH_NAMES } from '../../utils/exportUtils';
 import { TransactionCard } from '../../components/TransactionCard';
 import { getCurrencySymbol } from '../../utils/mockData';
-type FilterType = 'Today' | 'This Week' | 'This Month' | 'All';
-const FILTERS: FilterType[] = ['Today', 'This Week', 'This Month', 'All'];
 
-// ── Date helpers ────────────────────────────────────────────────────────────
+type TypeFilter = 'All' | 'expense' | 'income' | 'transfer';
+
 const parseDate = (ds: string): Date => {
   if (!ds) return new Date(NaN);
   const n = ds.toLowerCase().trim();
@@ -22,6 +21,10 @@ const parseDate = (ds: string): Date => {
   if (n === 'yesterday') { const d = new Date(now); d.setDate(now.getDate() - 1); return d; }
   const m = n.match(/^(\d+)\s+days?\s+ago$/);
   if (m) { const d = new Date(now); d.setDate(now.getDate() - parseInt(m[1], 10)); return d; }
+  const parts = ds.split('-');
+  if (parts.length === 3) {
+    return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  }
   const p = new Date(ds);
   return isNaN(p.getTime()) ? new Date(NaN) : p;
 };
@@ -30,50 +33,43 @@ const formatDisplayDate = (ds: string): string => {
   const d = parseDate(ds);
   if (isNaN(d.getTime())) return ds;
   const now = new Date();
-  if (d.toDateString() === now.toDateString()) return 'Today';
+  const dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  if (d.toDateString() === now.toDateString()) return `Today, ${dateStr}`;
   const yest = new Date(now); yest.setDate(now.getDate() - 1);
-  if (d.toDateString() === yest.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  if (d.toDateString() === yest.toDateString()) return `Yesterday, ${dateStr}`;
+  return dateStr;
 };
 
-// ── Component ────────────────────────────────────────────────────────────────
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return { text: 'Good Morning', icon: '🌅' };
+  if (hour < 17) return { text: 'Good Afternoon', icon: '☀️' };
+  return { text: 'Good Evening', icon: '🌙' };
+};
+
 export const HistoryScreen = () => {
   const C = useThemeColors();
-  const {
-    transactions, removeTransaction, clearAllTransactions,
-    monthlyBudget,
-    categoryBudgets, categoryMeta,
-    isLoading, userName,
-  } = useStore();
+  const { transactions, removeTransaction, categoryMeta, isLoading, userName } = useStore();
 
-  const [filter, setFilter] = useState<FilterType>('Today');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('All');
+  const [activeMonth, setActiveMonth] = useState(new Date());
   const [search, setSearch] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
 
   const currency = useStore(s => s.currency);
   const sym = getCurrencySymbol(currency);
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return { text: 'Good morning', icon: '☀️' };
-    if (hour < 17) return { text: 'Good afternoon', icon: '🌤️' };
-    if (hour < 21) return { text: 'Good evening', icon: '🌙' };
-    return { text: 'Good night', icon: '🌌' };
-  };
-  const greeting = getGreeting();
+  const monthLabel = `${MONTH_NAMES[activeMonth.getMonth()]} ${activeMonth.getFullYear()}`;
+  const now = new Date();
 
-  // ── Filtering ──────────────────────────────────────────────────────────────
+  const prevMonth = () => setActiveMonth(p => new Date(p.getFullYear(), p.getMonth() - 1, 1));
+  const nextMonth = () => setActiveMonth(p => new Date(p.getFullYear(), p.getMonth() + 1, 1));
+
   const filtered = useMemo(() => {
-    const now = new Date();
     let rows = transactions.filter(tx => {
+      if (typeFilter !== 'All' && tx.type !== typeFilter) return false;
       const d = parseDate(tx.date);
-      if (isNaN(d.getTime())) return filter === 'All';
-      switch (filter) {
-        case 'Today': return d.toDateString() === now.toDateString();
-        case 'This Week': { const w = new Date(now); w.setDate(now.getDate() - 7); return d >= w && d <= now; }
-        case 'This Month': return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-        case 'All': return true;
-      }
+      if (isNaN(d.getTime())) return false;
+      return d.getFullYear() === activeMonth.getFullYear() && d.getMonth() === activeMonth.getMonth();
     });
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -84,9 +80,8 @@ export const HistoryScreen = () => {
       );
     }
     return rows.sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
-  }, [transactions, filter, search]);
+  }, [transactions, typeFilter, activeMonth, search]);
 
-  // ── Group by date ─────────────────────────────────────────────────────────
   const sections = useMemo(() => {
     const groups: Record<string, typeof filtered> = {};
     filtered.forEach(tx => {
@@ -97,249 +92,161 @@ export const HistoryScreen = () => {
     return Object.entries(groups).map(([title, data]) => ({ title, data }));
   }, [filtered]);
 
-const { monthSpent, monthIncome, monthTransfer, monthCategoryTotals } = useMemo(() => {
-    const now = new Date();
-    let spent = 0, income = 0, transfer = 0;
-    const categorySpentMap: Record<string, number> = {};
+  const { summarySpent, summaryIncome, netBalance } = useMemo(() => {
+    let spent = 0, income = 0;
     transactions.forEach(tx => {
       const d = parseDate(tx.date);
-      if (!isNaN(d.getTime()) &&
-        d.getFullYear() === now.getFullYear() &&
-        d.getMonth() === now.getMonth()) {
-        if (tx.type === 'expense') {
-          spent += tx.amount;
-          categorySpentMap[tx.category] = (categorySpentMap[tx.category] || 0) + tx.amount;
-        } else if (tx.type === 'transfer') {
-          transfer += tx.amount;
-        } else {
-          income += tx.amount;
-        }
+      if (!isNaN(d.getTime()) && d.getFullYear() === activeMonth.getFullYear() && d.getMonth() === activeMonth.getMonth()) {
+        if (tx.type === 'expense') spent += tx.amount;
+        else if (tx.type === 'income') income += tx.amount;
       }
     });
-    return { monthSpent: spent, monthIncome: income, monthTransfer: transfer, monthCategoryTotals: categorySpentMap };
-  }, [transactions]);
+    return { summarySpent: spent, summaryIncome: income, netBalance: income - spent };
+  }, [transactions, activeMonth]);
 
-  const budgetProgress = monthlyBudget > 0 ? Math.min(monthSpent / monthlyBudget, 1) : 0;
-  const overBudget = monthlyBudget > 0 && monthSpent > monthlyBudget;
-
-  const overBudgetMap = useMemo(() => {
-    const map: Record<string, boolean> = {};
-    for (const cat of Object.keys(categoryBudgets)) {
-      const budget = categoryBudgets[cat];
-      const spent = monthCategoryTotals[cat] || 0;
-      const limit = budget.period === 'weekly' ? budget.amount * 4 : budget.amount;
-      map[cat] = limit > 0 && spent > limit;
-    }
-    return map;
-  }, [categoryBudgets, monthCategoryTotals]);
-
-  // ── Delete / Clear ────────────────────────────────────────────────────────
   const confirmDelete = useCallback((id: string, name: string) => {
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Delete Entry\n\nRemove "${name}"? This cannot be undone.`)) {
-        removeTransaction(id);
-      }
-      return;
-    }
-    Alert.alert(
-      'Delete Entry',
-      `Remove "${name}"? This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => removeTransaction(id) },
-      ]
-    );
+    Alert.alert('Delete Entry', `Remove "${name}"? This cannot be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => removeTransaction(id) },
+    ]);
   }, [removeTransaction]);
 
-  // ── Section list item ─────────────────────────────────────────────────────
-  const renderItem = ({ item: tx }: { item: typeof transactions[0] }) => (
-    <TransactionCard
-      tx={tx}
-      colors={C}
-      currencySymbol={sym}
-      confirmDelete={confirmDelete}
-      formatDisplayDate={formatDisplayDate}
-      categoryMeta={categoryMeta}
-      isOverBudget={overBudgetMap[tx.category]}
-    />
-  );
-
-  const renderSectionHeader = ({ section: { title } }: any) => (
-    <View style={[styles.sectionHeader, { backgroundColor: C.background }]}>
-      <View style={[styles.sectionDivider, { backgroundColor: C.border }]} />
-      <Text style={[styles.sectionLabel, { color: C.textSecondary }]}>{title}</Text>
-      <View style={[styles.sectionDivider, { backgroundColor: C.border }]} />
-    </View>
-  );
-
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: C.background }]}>
-      <RNStatusBar barStyle="light-content" backgroundColor={C.background} />
+    <SafeAreaView style={[styles.safe, { backgroundColor: '#09090B' }]}>
+      <RNStatusBar barStyle="light-content" backgroundColor="#09090B" />
 
-      {/* ── Header ── */}
+      {/* Header */}
       <View style={styles.header}>
-        {showSearch ? (
-          <View style={[styles.searchBar, { backgroundColor: C.surface, borderColor: C.border }]}>
-            <Search size={15} color={C.textSecondary} strokeWidth={2} />
-            <TextInput
-              style={[styles.searchInput, { color: C.textPrimary }]}
-              placeholder="Search transactions…"
-              placeholderTextColor={C.textMuted}
-              value={search}
-              onChangeText={setSearch}
-              autoFocus
-            />
-            <TouchableOpacity onPress={() => { setSearch(''); setShowSearch(false); }}>
-              <X size={15} color={C.textSecondary} strokeWidth={2.5} />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
-            <View>
-              <Text style={{ fontSize: 13, color: C.textSecondary, fontWeight: '600', marginBottom: 2 }}>
-                {greeting.text} {greeting.icon}
-              </Text>
-              <Text style={[styles.headerTitle, { color: C.textPrimary }]}>
-                {userName || 'Guest'}
-              </Text>
-            </View>
-            <View style={styles.headerRight}>
-              <TouchableOpacity
-                style={[styles.iconBtn, { backgroundColor: C.surface }]}
-                onPress={() => setShowSearch(true)}
-              >
-                <Search size={16} color={C.textPrimary} strokeWidth={2} />
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
+        <View>
+          <Text style={{ color: '#A1A1AA', fontSize: 13, marginBottom: 4, fontWeight: '500' }}>
+            {getGreeting().text} {getGreeting().icon}
+          </Text>
+          <Text style={{ color: '#FFF', fontSize: 22, fontWeight: '700' }}>
+            {userName || 'User'} 👋
+          </Text>
+        </View>
       </View>
 
-      {/* ── Month summary card ── */}
-      <View style={[styles.summaryCard, { backgroundColor: C.surface }]}>
-        <View style={styles.summaryRow}>
-          {/* Expenses */}
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryLabel, { color: C.textSecondary }]}>
-              {MONTH_NAMES[new Date().getMonth()]} Expenses
-            </Text>
-            <Text style={[styles.summaryAmount, { color: '#FFFFFF' }]}>
-              {sym}{monthSpent.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </Text>
+      {/* Analytics-Style Month Selector */}
+      <View style={styles.dateSelectorWrap}>
+        <TouchableOpacity style={styles.dateBtn} onPress={prevMonth}>
+          <ChevronLeft size={20} color="#FFF" />
+        </TouchableOpacity>
+        <Text style={styles.dateLabel}>{monthLabel}</Text>
+        <TouchableOpacity style={styles.dateBtn} onPress={nextMonth} disabled={activeMonth.getMonth() === now.getMonth() && activeMonth.getFullYear() === now.getFullYear()}>
+          <ChevronRight size={20} color={activeMonth.getMonth() === now.getMonth() && activeMonth.getFullYear() === now.getFullYear() ? '#333' : '#FFF'} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchWrap}>
+        <Search size={18} color="#888" style={{ marginLeft: 12 }} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search transactions"
+          placeholderTextColor="#888"
+          value={search}
+          onChangeText={setSearch}
+        />
+      </View>
+
+      {/* Filter Pills */}
+      <View style={styles.filterRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}>
+          <TouchableOpacity
+            style={[styles.pill, typeFilter === 'All' && styles.pillActiveAll]}
+            onPress={() => setTypeFilter('All')}
+          >
+            <Text style={[styles.pillText, typeFilter === 'All' && { color: '#22C55E' }]}>All</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.pill, typeFilter === 'expense' && styles.pillActive]}
+            onPress={() => setTypeFilter('expense')}
+          >
+            <ArrowDown size={14} color="#EF4444" />
+            <Text style={styles.pillText}>Expenses</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.pill, typeFilter === 'income' && styles.pillActive]}
+            onPress={() => setTypeFilter('income')}
+          >
+            <ArrowUp size={14} color="#22C55E" />
+            <Text style={styles.pillText}>Income</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+
+      {/* Summary Card */}
+      <View style={styles.summaryWrapper}>
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryHeader}>
+            <View>
+              <Text style={styles.summaryHeaderLabel}>Summary for</Text>
+              <Text style={[styles.summaryDateText, { marginTop: 2, color: '#FFF' }]}>{monthLabel}</Text>
+            </View>
           </View>
-          {/* Divider */}
-          <View style={[styles.summaryDivider, { backgroundColor: C.border }]} />
-          {/* Transfer */}
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryLabel, { color: C.textSecondary }]}>Transfer</Text>
-            <Text style={[styles.summaryAmount, { color: '#14B8A6' }]}>
-              {sym}{monthTransfer.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </Text>
-          </View>
-          {/* Divider */}
-          <View style={[styles.summaryDivider, { backgroundColor: C.border }]} />
-          {/* Income */}
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryLabel, { color: C.textSecondary }]}>Income</Text>
-            <Text style={[styles.summaryAmount, { color: C.income }]}>
-              {sym}{monthIncome.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </Text>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>Total Expenses</Text>
+              <View style={styles.summaryValWrap}>
+                <Text style={styles.summaryVal}>{sym}{summarySpent.toLocaleString('en-IN')}</Text>
+                <ArrowDown size={12} color="#EF4444" />
+              </View>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>Total Income</Text>
+              <View style={styles.summaryValWrap}>
+                <Text style={styles.summaryVal}>{sym}{summaryIncome.toLocaleString('en-IN')}</Text>
+                <ArrowUp size={12} color="#22C55E" />
+              </View>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>Net Balance</Text>
+              <View style={styles.summaryValWrap}>
+                <Text style={[styles.summaryVal, { color: '#22C55E' }]}>{sym}{Math.abs(netBalance).toLocaleString('en-IN')}</Text>
+                <ArrowUp size={12} color="#22C55E" />
+              </View>
+            </View>
           </View>
         </View>
-
-        {/* Budget progress */}
-        {monthlyBudget > 0 && (
-          <View style={styles.budgetSection}>
-            <View style={styles.budgetHeaderRow}>
-              <View style={styles.budgetLabelRow}>
-                <TrendingDown size={12} color={overBudget ? C.expense : C.textSecondary} strokeWidth={2} />
-                <Text style={[styles.budgetLabel, { color: overBudget ? C.expense : C.textSecondary }]}>
-                  Budget: {sym}{monthlyBudget.toLocaleString('en-IN')}
-                </Text>
-              </View>
-              <Text style={[styles.budgetPct, { color: overBudget ? C.expense : C.textSecondary }]}>
-                {Math.round(budgetProgress * 100)}%
-              </Text>
-            </View>
-            <View style={[styles.progressTrack, { backgroundColor: C.surfaceMid }]}>
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    backgroundColor: overBudget ? C.expense : C.primary,
-                    width: `${budgetProgress * 100}%`,
-                  },
-                ]}
-              />
-            </View>
-            {overBudget && (
-              <View style={styles.overBudgetRow}>
-                <AlertCircle size={11} color={C.expense} />
-                <Text style={[styles.overBudgetText, { color: C.expense }]}>
-                  Over budget by {sym}
-                  {(monthSpent - monthlyBudget).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-        {monthlyBudget <= 0 && (
-          <View style={styles.setBudgetBtn}>
-            <Text style={[styles.setBudgetText, { color: C.textSecondary }]}>No monthly budget set (Set in Profile)</Text>
-          </View>
-        )}
       </View>
 
-      {/* ── Filter pills ── */}
-      <View style={styles.filters}>
-        {FILTERS.map(f => {
-          const active = f === filter;
-          return (
-            <TouchableOpacity
-              key={f}
-              onPress={() => setFilter(f)}
-              style={[
-                styles.filterPill,
-                { backgroundColor: active ? '#FFFFFF' : C.surface },
-              ]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.filterText, { color: active ? '#000000' : C.textSecondary }]}>
-                {f}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* ── Transaction list ── */}
+      {/* Transaction List */}
       {isLoading ? (
         <View style={styles.centerState}>
-          <ActivityIndicator size="large" color={C.primary} />
+          <ActivityIndicator size="large" color="#22C55E" />
         </View>
       ) : sections.length === 0 ? (
         <View style={styles.centerState}>
-          <Text style={styles.emptyEmoji}>{search ? '🔍' : '🗂️'}</Text>
-          <Text style={[styles.emptyTitle, { color: C.textPrimary }]}>
-            {search ? 'No results' : 'Nothing here yet'}
-          </Text>
-          <Text style={[styles.emptyHint, { color: C.textSecondary }]}>
-            {search
-              ? `No matches for "${search}"`
-              : 'Tap Add to record your first transaction'}
-          </Text>
+          <Text style={{ fontSize: 40, marginBottom: 12 }}>{search ? '🔍' : '🗂️'}</Text>
+          <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '700' }}>No transactions found</Text>
         </View>
       ) : (
         <SectionList
           sections={sections}
           keyExtractor={tx => tx.id}
-          renderItem={renderItem}
-          renderSectionHeader={renderSectionHeader}
-          contentContainerStyle={[styles.listContent, { paddingBottom: 110 }]}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110 }}
+          renderSectionHeader={({ section: { title } }) => (
+            <Text style={styles.sectionTitle}>{title}</Text>
+          )}
+          renderItem={({ item, index, section }) => (
+            <TransactionCard
+              tx={item}
+              colors={C}
+              currencySymbol={sym}
+              confirmDelete={confirmDelete}
+              formatDisplayDate={formatDisplayDate}
+              categoryMeta={categoryMeta}
+              isFirst={index === 0}
+              isLast={index === section.data.length - 1}
+            />
+          )}
           showsVerticalScrollIndicator={false}
           stickySectionHeadersEnabled={false}
-          keyboardShouldPersistTaps="handled"
         />
       )}
     </SafeAreaView>
@@ -348,94 +255,49 @@ const { monthSpent, monthIncome, monthTransfer, monthCategoryTotals } = useMemo(
 
 const styles = StyleSheet.create({
   safe: { flex: 1, paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
 
-  // Header
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 8,
-  },
-  headerTitle: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
-  headerRight: { flexDirection: 'row', gap: 8 },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchBar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 42,
-    borderWidth: 1,
-  },
-  searchInput: { flex: 1, fontSize: 14, fontWeight: '500' },
+  dateSelectorWrap: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, marginBottom: 12 },
+  dateBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#131315', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#27272A' },
+  dateLabel: { color: '#FFF', fontSize: 16, fontWeight: '700', minWidth: 100, textAlign: 'center' },
 
-  // Summary card
-  summaryCard: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 20,
-    padding: 18,
-  },
-  summaryRow: { flexDirection: 'row', alignItems: 'center' },
-  summaryItem: { flex: 1, alignItems: 'center' },
-  summaryDivider: { width: 1, height: 36, marginHorizontal: 16 },
-  summaryLabel: { fontSize: 11, fontWeight: '600', marginBottom: 4, letterSpacing: 0.3 },
-  summaryAmount: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#131315', marginHorizontal: 16, borderRadius: 12, paddingRight: 12, marginBottom: 16, borderWidth: 1, borderColor: '#27272A', height: 44 },
+  searchInput: { flex: 1, height: '100%', color: '#FFF', fontSize: 15, paddingHorizontal: 10 },
 
-  // Budget
-  budgetSection: { marginTop: 16 },
-  budgetHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  budgetLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  budgetLabel: { fontSize: 12, fontWeight: '600' },
-  budgetPct: { fontSize: 12, fontWeight: '700' },
-  progressTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 3 },
-  overBudgetRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
-  overBudgetText: { fontSize: 12, fontWeight: '600' },
-  setBudgetBtn: { marginTop: 12, alignSelf: 'flex-start' },
-  setBudgetText: { fontSize: 13, fontWeight: '700' },
+  filterRow: { marginBottom: 16 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#131315', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#27272A' },
+  pillActiveAll: { borderColor: '#22C55E' },
+  pillActive: { borderColor: '#555' },
+  pillText: { color: '#A0A0A0', fontSize: 13, fontWeight: '600' },
 
-  // Filters
-  filters: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 8,
-    marginBottom: 10,
-  },
-  filterPill: {
-    flex: 1,
-    paddingVertical: 9,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  filterText: { fontSize: 12, fontWeight: '700' },
+  summaryWrapper: { paddingHorizontal: 16, marginBottom: 16 },
+  summaryCard: { backgroundColor: '#131315', borderRadius: 16, borderWidth: 1, borderColor: '#27272A', padding: 16 },
+  summaryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+  summaryHeaderLabel: { color: '#888', fontSize: 12, fontWeight: '500', marginBottom: 2 },
+  summaryDateSel: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  summaryDateText: { color: '#FFF', fontSize: 15, fontWeight: '600' },
+  summaryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#1A2E20', backgroundColor: '#0B1F11' },
+  summaryBtnText: { color: '#22C55E', fontSize: 12, fontWeight: '600' },
 
-  // Section headers
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    gap: 10,
-  },
-  sectionDivider: { flex: 1, height: StyleSheet.hairlineWidth },
-  sectionLabel: { fontSize: 12, fontWeight: '600', letterSpacing: 0.4 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  summaryCol: { flex: 1 },
+  summaryLabel: { color: '#888', fontSize: 12, marginBottom: 4 },
+  summaryValWrap: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  summaryVal: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  summaryDivider: { width: 1, height: 30, backgroundColor: '#27272A', marginHorizontal: 12 },
 
-  // List
-  listContent: { paddingHorizontal: 16 },
+  sectionTitle: { color: '#888', fontSize: 13, fontWeight: '600', marginTop: 16, marginBottom: 8 },
 
-  // Empty / loading
-  centerState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingBottom: 80 },
-  emptyEmoji: { fontSize: 48, marginBottom: 14 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6 },
-  emptyHint: { fontSize: 14, textAlign: 'center', paddingHorizontal: 36, lineHeight: 20 },
+  centerState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#131315', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '60%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#FFF' },
+  modalClose: { padding: 4, backgroundColor: '#27272A', borderRadius: 12 },
+  modalItem: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#27272A' },
+  modalItemActive: { backgroundColor: '#1A2E20' },
+  modalItemText: { fontSize: 16, color: '#FFF', textAlign: 'center' },
+  modalItemTextActive: { color: '#22C55E', fontWeight: '700' },
 });

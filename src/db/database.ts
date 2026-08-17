@@ -47,18 +47,27 @@ export const initDB = async () => {
       time TEXT,
       type TEXT NOT NULL DEFAULT 'expense',
       paymentMethod TEXT,
-      notes TEXT
+      toPaymentMethod TEXT,
+      notes TEXT,
+      receipt TEXT,
+      splitWith TEXT
     );
   `);
+  // Attempt to add column to existing databases safely
+  try { await db.execAsync('ALTER TABLE transactions ADD COLUMN paymentMethod TEXT;'); } catch {}
+  try { await db.execAsync('ALTER TABLE transactions ADD COLUMN toPaymentMethod TEXT;'); } catch {}
+  try { await db.execAsync('ALTER TABLE transactions ADD COLUMN notes TEXT;'); } catch {}
+  try { await db.execAsync('ALTER TABLE transactions ADD COLUMN receipt TEXT;'); } catch {}
+  try { await db.execAsync('ALTER TABLE transactions ADD COLUMN splitWith TEXT;'); } catch {}
 };
 
 export const addTransactionToDB = async (
-  transaction: Transaction & { paymentMethod?: string; notes?: string }
+  transaction: Transaction & { paymentMethod?: string; toPaymentMethod?: string; notes?: string; receipt?: string; splitWith?: string }
 ) => {
   const db = await getDb();
   await db.runAsync(
-    `INSERT OR REPLACE INTO transactions (id, title, amount, category, date, time, type, paymentMethod, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO transactions (id, title, amount, category, date, time, type, paymentMethod, toPaymentMethod, notes, receipt, splitWith)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       transaction.id,
       transaction.title,
@@ -68,7 +77,10 @@ export const addTransactionToDB = async (
       transaction.time ?? null,
       transaction.type,
       transaction.paymentMethod ?? null,
+      transaction.toPaymentMethod ?? null,
       transaction.notes ?? null,
+      transaction.receipt ?? null,
+      transaction.splitWith ?? null,
     ]
   );
 };

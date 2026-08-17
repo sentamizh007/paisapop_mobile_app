@@ -40,7 +40,10 @@ export interface Transaction {
   time?: string;
   type: 'expense' | 'income' | 'transfer';
   paymentMethod?: string;
+  toPaymentMethod?: string;
   notes?: string;
+  receipt?: string;
+  splitWith?: string;
 }
 
 export const getCategoryIcon = (category: Category, color: string, size: number) => {

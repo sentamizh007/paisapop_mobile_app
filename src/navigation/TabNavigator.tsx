@@ -2,30 +2,31 @@ import React from 'react';
 import { View, Platform, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PlusCircle, Clock, BarChart3, User } from 'lucide-react-native';
+import { PlusCircle, Clock, BarChart3, LayoutGrid, Wallet } from 'lucide-react-native';
 import { AddExpenseScreen } from '../screens/main/AddExpenseScreen';
 import { HistoryScreen } from '../screens/main/HistoryScreen';
 import { AnalyticsScreen } from '../screens/main/AnalyticsScreen';
 import { ProfileScreen } from '../screens/main/ProfileScreen';
+import { BudgetsScreen } from '../screens/main/BudgetsScreen';
+import { AccountsScreen } from '../screens/main/AccountsScreen';
 import { darkColors as C } from '../theme/colors';
-import { useStore } from '../store/useStore';
 
 export type TabParamList = {
-  History: undefined;
   Add: undefined;
+  History: undefined;
   Analytics: undefined;
+  Budgets: undefined;
   Profile: undefined;
+  Accounts: undefined;
 };
 
 const Tab = createBottomTabNavigator<TabParamList>();
-
 const TAB_H = 60;
 
 export const TabNavigator = () => {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 6 : 0);
   const tabBarHeight = TAB_H + bottomPad;
-  const userName = useStore(s => s.userName);
 
   return (
     <Tab.Navigator
@@ -46,7 +47,7 @@ export const TabNavigator = () => {
           shadowRadius: 16,
           position: 'absolute',
         },
-        tabBarActiveTintColor: '#FFFFFF',
+        tabBarActiveTintColor: '#22C55E', // Using the active green color
         tabBarInactiveTintColor: '#71717A',
         tabBarLabelStyle: {
           fontSize: 10,
@@ -65,25 +66,7 @@ export const TabNavigator = () => {
         options={{
           tabBarLabel: 'History',
           tabBarIcon: ({ color, focused }) => (
-            <Clock
-              size={focused ? 26 : 23}
-              color={color}
-              strokeWidth={focused ? 2.2 : 1.8}
-            />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Add"
-        component={AddExpenseScreen}
-        options={{
-          tabBarLabel: 'Add',
-          tabBarIcon: ({ color, focused }) => (
-            <PlusCircle
-              size={focused ? 26 : 23}
-              color={color}
-              strokeWidth={focused ? 2.2 : 1.8}
-            />
+            <Clock size={focused ? 26 : 23} color={color} strokeWidth={focused ? 2.2 : 1.8} />
           ),
         }}
       />
@@ -93,27 +76,46 @@ export const TabNavigator = () => {
         options={{
           tabBarLabel: 'Analytics',
           tabBarIcon: ({ color, focused }) => (
-            <BarChart3
-              size={focused ? 26 : 23}
-              color={color}
-              strokeWidth={focused ? 2.2 : 1.8}
-            />
+            <BarChart3 size={focused ? 26 : 23} color={color} strokeWidth={focused ? 2.2 : 1.8} />
           ),
         }}
       />
-
+      <Tab.Screen
+        name="Add"
+        component={AddExpenseScreen}
+        options={{
+          tabBarLabel: 'Add',
+          tabBarIcon: ({ color, focused }) => (
+            <PlusCircle size={focused ? 26 : 23} color={color} strokeWidth={focused ? 2.2 : 1.8} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Budgets"
+        component={BudgetsScreen}
+        options={{
+          tabBarLabel: 'Budgets',
+          tabBarIcon: ({ color, focused }) => (
+            <Wallet size={focused ? 26 : 23} color={color} strokeWidth={focused ? 2.2 : 1.8} />
+          ),
+        }}
+      />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
-          tabBarLabel: userName || 'Profile',
+          tabBarLabel: 'Settings',
           tabBarIcon: ({ color, focused }) => (
-            <User
-              size={focused ? 26 : 23}
-              color={color}
-              strokeWidth={focused ? 2.2 : 1.8}
-            />
+            <LayoutGrid size={focused ? 26 : 23} color={color} strokeWidth={focused ? 2.2 : 1.8} />
           ),
+        }}
+      />
+      <Tab.Screen
+        name="Accounts"
+        component={AccountsScreen}
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
         }}
       />
     </Tab.Navigator>

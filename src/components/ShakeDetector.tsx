@@ -11,7 +11,7 @@ import {
   Platform,
   Animated,
 } from 'react-native';
-import { Accelerometer } from 'expo-sensors';
+import * as QuickActions from 'expo-quick-actions';
 import { BlurView } from 'expo-blur';
 import { useStore } from '../store/useStore';
 import { Category } from '../utils/mockData';
@@ -25,21 +25,7 @@ import { User } from 'lucide-react-native';
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * After subtracting gravity (high-pass filter), a real shake produces
- * a net linear-acceleration magnitude well above 0.8 g. Normal movement
- * (picking up phone, walking) rarely exceeds 0.6 g in the filtered signal.
- */
-const SHAKE_THRESHOLD = 0.8;
-
-/** Minimum ms between two consecutive shake triggers. */
-const SHAKE_COOLDOWN_MS = 2500;
-
-/** Low-pass filter coefficient for the gravity estimate (0..1). */
-const GRAVITY_ALPHA = 0.8;
-
-/** Sensor polling interval in ms. */
-const SENSOR_INTERVAL_MS = 100;
+/** Quick Actions Configuration */
 
 /** Auto-close the modal after this many milliseconds (3 seconds). */
 const AUTO_CLOSE_MS = 3000;
@@ -56,17 +42,10 @@ export const ShakeDetector: React.FC<ShakeDetectorProps> = ({ children }) => {
   const shakeToAdd = useStore((s) => s.shakeToAdd);
   const [visible, setVisible] = useState(false);
 
-  const lastShakeTime = useRef<number>(0);
-  const isShaking    = useRef<boolean>(false);
-  const gravityX     = useRef<number>(0);
-  const gravityY     = useRef<number>(0);
-  const gravityZ     = useRef<number>(0);
-  const mountedRef   = useRef<boolean>(true);
+  const mountedRef = useRef<boolean>(true);
 
-  // Reset debounce when modal is closed so rapid re-shake works.
   const handleClose = useCallback(() => {
     setVisible(false);
-    lastShakeTime.current = 0;
   }, []);
 
   useEffect(() => {
@@ -75,38 +54,33 @@ export const ShakeDetector: React.FC<ShakeDetectorProps> = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    if (!shakeToAdd || Platform.OS === 'web') return;
+    if (Platform.OS === 'web') return;
+    // Register the Quick Action shortcut
+    QuickActions.setItems([
+      {
+        title: 'Quick Add',
+        id: 'quick-add',
+        icon: 'compose',
+        params: { href: 'quickadd' }
+      }
+    ]);
 
-    Accelerometer.setUpdateInterval(SENSOR_INTERVAL_MS);
-
-    const subscription = Accelerometer.addListener(({ x, y, z }) => {
-      // High-pass filter: subtract gravity to get linear acceleration
-      gravityX.current = GRAVITY_ALPHA * gravityX.current + (1 - GRAVITY_ALPHA) * x;
-      gravityY.current = GRAVITY_ALPHA * gravityY.current + (1 - GRAVITY_ALPHA) * y;
-      gravityZ.current = GRAVITY_ALPHA * gravityZ.current + (1 - GRAVITY_ALPHA) * z;
-
-      const linX = x - gravityX.current;
-      const linY = y - gravityY.current;
-      const linZ = z - gravityZ.current;
-
-      const magnitude = Math.sqrt(linX * linX + linY * linY + linZ * linZ);
-
-      if (magnitude > SHAKE_THRESHOLD) {
-        if (!isShaking.current) {
-          // Only trigger ONCE per shake gesture (rising edge only)
-          isShaking.current = true;
-          const now = Date.now();
-          if (now - lastShakeTime.current > SHAKE_COOLDOWN_MS) {
-            lastShakeTime.current = now;
-            if (mountedRef.current) setVisible(true);
-          }
-        }
-      } else {
-        isShaking.current = false;
+    // Handle Quick Action clicks while app is open
+    const subscription = QuickActions.addListener((action) => {
+      if (action.id === 'quick-add' && mountedRef.current) {
+        setVisible(true);
       }
     });
 
-    return () => { subscription.remove(); };
+    // Handle initial Quick Action (app launched from closed state)
+    const action = QuickActions.initial;
+    if (action?.id === 'quick-add' && mountedRef.current) {
+      setVisible(true);
+    }
+
+    return () => {
+      subscription.remove();
+    };
   }, [shakeToAdd]);
 
   return (
@@ -128,27 +102,27 @@ interface QuickAddModalProps {
 
 const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, onClose }) => {
   const storeCategories = useStore((s) => s.categories);
-  const categoryMeta    = useStore((s) => s.categoryMeta);
-  const addTransaction  = useStore((s) => s.addTransaction);
-  const currency        = useStore((s) => s.currency);
-  const userName        = useStore((s) => s.userName);
-  const insets          = useSafeAreaInsets();
+  const categoryMeta = useStore((s) => s.categoryMeta);
+  const addTransaction = useStore((s) => s.addTransaction);
+  const currency = useStore((s) => s.currency);
+  const userName = useStore((s) => s.userName);
+  const insets = useSafeAreaInsets();
 
   // Navigation — to jump to Profile from the shake modal
   const navigation = useNavigation<BottomTabNavigationProp<TabParamList>>();
 
   const sym = currency === 'USD' ? '$' : '₹';
 
-  const [step, setStep]   = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2>(1);
   const [amount, setAmount] = useState('');
-  const [note, setNote]   = useState('');
+  const [note, setNote] = useState('');
 
   const amountInputRef = useRef<TextInput>(null);
 
   // ── Countdown progress animation ───────────────────────────────────────────
   // progressAnim goes from 1 → 0 over AUTO_CLOSE_MS
-  const progressAnim    = useRef(new Animated.Value(1)).current;
-  const autoCloseTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const progressAnim = useRef(new Animated.Value(1)).current;
+  const autoCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progressAnimRef = useRef<Animated.CompositeAnimation | null>(null);
 
   // Start / restart the 3-second countdown whenever the modal becomes visible
@@ -213,14 +187,14 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, onClose }) => {
 
     const now = new Date();
     await addTransaction({
-      title:         cat,
-      amount:        amt,
-      category:      cat as Category,
-      date:          now.toISOString().split('T')[0],
-      time:          now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      type:          'expense',
+      title: cat,
+      amount: amt,
+      category: cat as Category,
+      date: now.toISOString().split('T')[0],
+      time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      type: 'expense',
       paymentMethod: 'Cash',
-      notes:         note.trim() || undefined,
+      notes: note.trim() || undefined,
     });
 
     onClose();
@@ -270,7 +244,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, onClose }) => {
                   styles.progressFill,
                   {
                     width: progressAnim.interpolate({
-                      inputRange:  [0, 1],
+                      inputRange: [0, 1],
                       outputRange: ['0%', '100%'],
                     }),
                   },
@@ -505,8 +479,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelBtn: { backgroundColor: 'rgba(0,0,0,0.1)' },
-  doneBtn:   { backgroundColor: '#007AFF' },
-  btnText:   { fontSize: 16, fontWeight: '600' },
+  doneBtn: { backgroundColor: '#007AFF' },
+  btnText: { fontSize: 16, fontWeight: '600' },
 
   // ── Step 2 categories ──────────────────────────────────────────────────────
   step2Header: { marginBottom: 8 },
@@ -525,5 +499,5 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   catEmoji: { fontSize: 20, marginRight: 12 },
-  catName:  { fontSize: 16, color: '#000', fontWeight: '500' },
+  catName: { fontSize: 16, color: '#000', fontWeight: '500' },
 });

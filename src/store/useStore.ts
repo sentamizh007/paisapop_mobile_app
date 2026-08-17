@@ -15,6 +15,15 @@ export type Theme = 'dark' | 'light';
 
 const SETTINGS_KEY = 'spendwise_settings';
 
+export interface Account {
+  id: string;
+  name: string;
+  type: 'cash' | 'upi' | 'bank' | 'credit' | 'wallet';
+  initialBalance: number;
+  color: string;
+  details?: string;
+}
+
 interface Settings {
   currency: Currency;
   language: Language;
@@ -25,12 +34,21 @@ interface Settings {
   categoryBudgets: Record<string, { amount: number; period: 'monthly' | 'weekly' }>;
   userName: string | null;
   shakeToAdd: boolean;
+  accounts: Account[];
 }
 
 const DEFAULT_CATEGORIES = [
   'Food', 'Transport', 'Shopping', 'Bills', 'Subscriptions',
   'Health', 'Entertainment', 'Education', 'Travel', 'Groceries',
   'Coffee', 'Gifts', 'Rent', 'Savings', 'Other',
+];
+
+const DEFAULT_ACCOUNTS: Account[] = [
+  { id: 'acc_cash', name: 'Cash', type: 'cash', initialBalance: 0, color: '#22C55E', details: 'Physical Cash' },
+  { id: 'acc_upi', name: 'UPI', type: 'upi', initialBalance: 0, color: '#A855F7', details: 'Google Pay, PhonePe' },
+  { id: 'acc_bank', name: 'Bank Account', type: 'bank', initialBalance: 0, color: '#3B82F6', details: 'HDFC Bank' },
+  { id: 'acc_credit', name: 'Credit Card', type: 'credit', initialBalance: 0, color: '#F59E0B', details: 'SBI Card' },
+  { id: 'acc_wallet', name: 'Wallet', type: 'wallet', initialBalance: 0, color: '#EC4899', details: 'Paisa Pop Wallet' },
 ];
 
 const DEFAULT_SETTINGS: Settings = {
@@ -43,6 +61,7 @@ const DEFAULT_SETTINGS: Settings = {
   categoryBudgets: {},
   userName: null,
   shakeToAdd: true,
+  accounts: DEFAULT_ACCOUNTS,
 };
 
 interface StoreState extends Settings {
@@ -53,10 +72,13 @@ interface StoreState extends Settings {
   login: (name: string) => void;
   logout: () => void;
 
+  // Accounts
+  setAccounts: (accounts: Account[]) => void;
+
   // Transactions
   loadTransactions: () => Promise<void>;
   addTransaction: (
-    tx: Omit<Transaction, 'id'> & { paymentMethod?: string; notes?: string }
+    tx: Omit<Transaction, 'id'> & { paymentMethod?: string; toPaymentMethod?: string; notes?: string }
   ) => Promise<void>;
   updateTransaction: (
     id: string,
@@ -101,6 +123,12 @@ export const useStore = create<StoreState>((set, get) => ({
     persistSettings({ userName: null });
   },
 
+  // ── Accounts ─────────────────────────────────────────────────────────────
+  setAccounts: (accounts) => {
+    set({ accounts });
+    persistSettings({ accounts });
+  },
+
   // ── Settings Persistence ─────────────────────────────────────────────────
   loadSettings: async () => {
     try {
@@ -117,6 +145,7 @@ export const useStore = create<StoreState>((set, get) => ({
           categoryBudgets: saved.categoryBudgets ?? {},
           userName: saved.userName ?? null,
           shakeToAdd: saved.shakeToAdd ?? true,
+          accounts: saved.accounts ?? DEFAULT_ACCOUNTS,
         });
       }
     } catch (_) { }
@@ -130,6 +159,7 @@ export const useStore = create<StoreState>((set, get) => ({
       set({ transactions: data });
     } catch (e) {
       console.error('loadTransactions error:', e);
+      throw e;
     } finally {
       set({ isLoading: false });
     }

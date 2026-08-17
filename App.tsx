@@ -6,7 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useThemeColors } from './src/theme/colors';
 import { initDB } from './src/db/database';
 import { useStore } from './src/store/useStore';
-import { View, ActivityIndicator, Text, StatusBar, TouchableOpacity } from 'react-native';
+import { View, ActivityIndicator, Text, StatusBar, TouchableOpacity, Platform } from 'react-native';
 import { ShakeDetector } from './src/components/ShakeDetector';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -38,7 +38,23 @@ function AppInner() {
   }, [loadSettings, loadTransactions]);
 
   useEffect(() => {
-    setup();
+    setup().then(() => {
+      // Mock Version Update Check
+      import('./src/utils/notifications').then(({ requestNotificationPermissions, sendLocalNotification }) => {
+        requestNotificationPermissions().then((granted) => {
+          if (granted || Platform.OS === 'web') {
+            // Simulate a check for a new version (we just notify for demonstration as requested)
+            const MOCK_NEW_VERSION = true;
+            if (MOCK_NEW_VERSION) {
+              sendLocalNotification(
+                '🎉 New Version Available!',
+                'PaisaPop v1.1.0 is out with awesome new features! Restart your app to apply updates.'
+              );
+            }
+          }
+        });
+      });
+    });
   }, [setup]);
 
   if (!ready) {

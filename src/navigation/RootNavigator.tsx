@@ -3,10 +3,13 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthNavigator } from './AuthNavigator';
 import { TabNavigator } from './TabNavigator';
 import { useStore } from '../store/useStore';
+import { AccountsScreen } from '../screens/main/AccountsScreen';
+import { AboutScreen } from '../screens/main/AboutScreen';
 
 export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
+  About: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -20,7 +23,10 @@ export const RootNavigator = () => {
       {!isAuthenticated ? (
         <Stack.Screen name="Auth" component={AuthNavigator} />
       ) : (
-        <Stack.Screen name="Main" component={TabNavigator} />
+        <>
+          <Stack.Screen name="Main" component={TabNavigator} />
+          <Stack.Screen name="About" component={AboutScreen} />
+        </>
       )}
     </Stack.Navigator>
   );
