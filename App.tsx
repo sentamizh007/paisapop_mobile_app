@@ -6,14 +6,16 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useThemeColors } from './src/theme/colors';
 import { initDB } from './src/db/database';
 import { useStore } from './src/store/useStore';
-import { View, ActivityIndicator, Text, StatusBar, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StatusBar, TouchableOpacity, Platform } from 'react-native';
 import { ShakeDetector } from './src/components/ShakeDetector';
+import { AppSplashScreen } from './src/components/AppSplashScreen';
 import * as SplashScreen from 'expo-splash-screen';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function AppInner() {
   const [ready, setReady] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const loadTransactions = useStore((s) => s.loadTransactions);
   const loadSettings = useStore((s) => s.loadSettings);
@@ -39,27 +41,11 @@ function AppInner() {
 
   useEffect(() => {
     setup().then(() => {
-      // Mock Version Update Check
-      import('./src/utils/notifications').then(({ requestNotificationPermissions, sendLocalNotification }) => {
-        requestNotificationPermissions().then((granted) => {
-          if (granted || Platform.OS === 'web') {
-            // Simulate a check for a new version (we just notify for demonstration as requested)
-            const MOCK_NEW_VERSION = true;
-            if (MOCK_NEW_VERSION) {
-              sendLocalNotification(
-                '🎉 New Version Available!',
-                'PaisaPop v1.1.0 is out with awesome new features! Restart your app to apply updates.'
-              );
-            }
-          }
-        });
+      import('./src/utils/notifications').then(({ requestNotificationPermissions }) => {
+        requestNotificationPermissions();
       });
     });
   }, [setup]);
-
-  if (!ready) {
-    return null;
-  }
 
   if (error) {
     return (
@@ -81,24 +67,47 @@ function AppInner() {
     );
   }
 
-  const navTheme = {
-    ...DarkTheme,
-    colors: {
-      ...DarkTheme.colors,
-      background: '#09090B',
-      card: '#18181B',
-      text: '#FAFAFA',
-      border: '#3F3F46',
-    },
-  };
+  const isLight = theme === 'light';
+  const navTheme = isLight
+    ? {
+        ...DefaultTheme,
+        colors: {
+          ...DefaultTheme.colors,
+          background: '#F4F4F5',
+          card: '#FFFFFF',
+          text: '#09090B',
+          border: '#E4E4E7',
+        },
+      }
+    : {
+        ...DarkTheme,
+        colors: {
+          ...DarkTheme.colors,
+          background: '#09090B',
+          card: '#18181B',
+          text: '#FAFAFA',
+          border: '#3F3F46',
+        },
+      };
 
   return (
-    <NavigationContainer theme={navTheme}>
-      <ShakeDetector>
-        <RootNavigator />
-        <StatusBar barStyle="light-content" backgroundColor="#09090B" />
-      </ShakeDetector>
-    </NavigationContainer>
+    <View style={{ flex: 1, backgroundColor: isLight ? '#F4F4F5' : '#09090B' }}>
+      {ready && (
+        <NavigationContainer theme={navTheme}>
+          <ShakeDetector>
+            <RootNavigator />
+            <StatusBar 
+              barStyle={isLight ? 'dark-content' : 'light-content'} 
+              backgroundColor={colors.background} 
+            />
+          </ShakeDetector>
+        </NavigationContainer>
+      )}
+
+      {showSplash && (
+        <AppSplashScreen isReady={ready} onFinish={() => setShowSplash(false)} />
+      )}
+    </View>
   );
 }
 

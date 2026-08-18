@@ -1,13 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, Platform,
+  View, Text, StyleSheet, Platform,
   StatusBar as RNStatusBar, ScrollView, TouchableOpacity, Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useStore } from '../../store/useStore';
+import { useThemeColors } from '../../theme/colors';
 import { getCategoryColor, getCategoryIcon, Category, getCurrencySymbol } from '../../utils/mockData';
 import { DonutChart } from '../../components/DonutChart';
-import { ChevronLeft, ChevronRight, ChevronDown, ReceiptText, Activity, Briefcase, Wallet, PieChart, ArrowDown, TrendingUp } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, ReceiptText, Activity, Briefcase, Wallet, PieChart, ArrowDown } from 'lucide-react-native';
 import { MONTH_NAMES } from '../../utils/exportUtils';
 
 const { width: SW } = Dimensions.get('window');
@@ -26,7 +28,7 @@ const parseDate = (ds: string) => {
 };
 
 // ── Line Chart ───────────────────────────────────────────────────────────────
-const SpendingLineChart = ({ data, labels, color }: { data: number[]; labels: string[]; color: string; }) => {
+const SpendingLineChart = ({ data, labels, color, gridColor, textColor }: { data: number[]; labels: string[]; color: string; gridColor: string; textColor: string; }) => {
   const W = SW - 64;
   const H = 160;
   const padX = 30;
@@ -77,36 +79,31 @@ const SpendingLineChart = ({ data, labels, color }: { data: number[]; labels: st
             <Stop offset="1" stopColor={color} stopOpacity="0.0" />
           </LinearGradient>
         </Defs>
-        {/* Horizontal grid lines */}
-        <Path d={`M ${padX} ${padY} L ${W} ${padY}`} stroke="#27272A" strokeWidth={1} />
-        <Path d={`M ${padX} ${padY + chartH / 2} L ${W} ${padY + chartH / 2}`} stroke="#27272A" strokeWidth={1} />
-        <Path d={`M ${padX} ${padY + chartH} L ${W} ${padY + chartH}`} stroke="#27272A" strokeWidth={1} />
+        <Path d={`M ${padX} ${padY} L ${W} ${padY}`} stroke={gridColor} strokeWidth={1} />
+        <Path d={`M ${padX} ${padY + chartH / 2} L ${W} ${padY + chartH / 2}`} stroke={gridColor} strokeWidth={1} />
+        <Path d={`M ${padX} ${padY + chartH} L ${W} ${padY + chartH}`} stroke={gridColor} strokeWidth={1} />
 
-        {/* Area & Line */}
         {hasData && <Path d={areaPath} fill="url(#lg)" />}
-        <Path d={linePath} fill="none" stroke={hasData ? color : '#333'} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d={linePath} fill="none" stroke={hasData ? color : gridColor} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
 
-        {/* Peaks dots */}
         {hasData && pts.filter((_, i) => i === 0 || i === Math.floor(pts.length / 2) || i === pts.length - 1).map((p, i) => (
-          <Circle key={i} cx={p.x} cy={p.y} r={4} fill={color} stroke="#131315" strokeWidth={2} />
+          <Circle key={i} cx={p.x} cy={p.y} r={4} fill={color} stroke="#FFF" strokeWidth={2} />
         ))}
       </Svg>
 
-      {/* Y Axis Labels (Absolute positioning) */}
       <View style={{ position: 'absolute', top: padY - 8, left: 0 }}>
-        <Text style={{ color: '#888', fontSize: 10 }}>{formatY(max)}</Text>
+        <Text style={{ color: textColor, fontSize: 10 }}>{formatY(max)}</Text>
       </View>
       <View style={{ position: 'absolute', top: padY + chartH / 2 - 8, left: 0 }}>
-        <Text style={{ color: '#888', fontSize: 10 }}>{formatY(max / 2)}</Text>
+        <Text style={{ color: textColor, fontSize: 10 }}>{formatY(max / 2)}</Text>
       </View>
       <View style={{ position: 'absolute', top: padY + chartH - 8, left: 0 }}>
-        <Text style={{ color: '#888', fontSize: 10 }}>0</Text>
+        <Text style={{ color: textColor, fontSize: 10 }}>0</Text>
       </View>
 
-      {/* X Axis Labels */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginLeft: padX, marginTop: 4 }}>
         {labels.map((l, i) => (
-          <Text key={i} style={{ color: '#888', fontSize: 10 }}>{l}</Text>
+          <Text key={i} style={{ color: textColor, fontSize: 10 }}>{l}</Text>
         ))}
       </View>
     </View>
@@ -114,27 +111,29 @@ const SpendingLineChart = ({ data, labels, color }: { data: number[]; labels: st
 };
 
 // ── Metric Card ──────────────────────────────────────────────────────────────
-const MetricCard = ({ icon, title, value, subtitle, badgeText, badgeColor }: any) => (
-  <View style={styles.metricCard}>
-    <View style={styles.metricIconWrap}>{icon}</View>
-    <Text style={styles.metricTitle}>{title}</Text>
-    <Text style={styles.metricValue}>{value}</Text>
+const MetricCard = ({ icon, title, value, subtitle, badgeText, badgeColor, colors }: any) => (
+  <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <View style={[styles.metricIconWrap, { backgroundColor: 'rgba(34,197,94,0.1)' }]}>{icon}</View>
+    <Text style={[styles.metricTitle, { color: colors.textSecondary }]}>{title}</Text>
+    <Text style={[styles.metricValue, { color: colors.textPrimary }]}>{value}</Text>
     {badgeText ? (
       <View style={styles.metricBadgeRow}>
         <View style={styles.metricBadge}>
           <ArrowDown size={10} color={badgeColor || "#22C55E"} />
           <Text style={[styles.metricBadgeText, { color: badgeColor || "#22C55E" }]}>{badgeText}</Text>
         </View>
-        <Text style={styles.metricSub}>{subtitle}</Text>
+        <Text style={[styles.metricSub, { color: colors.textSecondary }]} numberOfLines={2}>{subtitle}</Text>
       </View>
     ) : (
-      <Text style={styles.metricSubColored} numberOfLines={1}>{subtitle}</Text>
+      <Text style={[styles.metricSubColored, { color: colors.textSecondary }]} numberOfLines={2}>{subtitle}</Text>
     )}
   </View>
 );
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 export const AnalyticsScreen = () => {
+  const C = useThemeColors();
+  const theme = useStore(s => s.theme);
   const transactions = useStore(s => s.transactions);
   const currency = useStore(s => s.currency);
   const categoryMeta = useStore(s => s.categoryMeta);
@@ -142,11 +141,10 @@ export const AnalyticsScreen = () => {
   const sym = getCurrencySymbol(currency);
 
   const [activeMonth, setActiveMonth] = useState(new Date());
-  const monthLabel = `${MONTH_SHORT[activeMonth.getMonth()]} ${activeMonth.getFullYear()}`;
+  const monthLabel = `${MONTH_NAMES[activeMonth.getMonth()]} ${activeMonth.getFullYear()}`;
 
   const prevMonth = () => setActiveMonth(p => new Date(p.getFullYear(), p.getMonth() - 1, 1));
   const nextMonth = () => setActiveMonth(p => new Date(p.getFullYear(), p.getMonth() + 1, 1));
-
   const now = new Date();
   const isFutureMonth = activeMonth.getFullYear() > now.getFullYear() || (activeMonth.getFullYear() === now.getFullYear() && activeMonth.getMonth() >= now.getMonth());
 
@@ -159,165 +157,145 @@ export const AnalyticsScreen = () => {
     [transactions, activeMonth]
   );
 
-  const prevMonthExpenses = useMemo(() => {
-    const prev = new Date(activeMonth.getFullYear(), activeMonth.getMonth() - 1, 1);
+  const totalSpent = useMemo(() => monthExpenses.reduce((s, tx) => s + tx.amount, 0), [monthExpenses]);
+
+  const prevMonthTotal = useMemo(() => {
+    const pm = new Date(activeMonth.getFullYear(), activeMonth.getMonth() - 1, 1);
     return transactions.filter(tx => {
       if (tx.type !== 'expense') return false;
       const d = parseDate(tx.date);
-      return !isNaN(d.getTime()) && d.getFullYear() === prev.getFullYear() && d.getMonth() === prev.getMonth();
-    });
+      return !isNaN(d.getTime()) && d.getFullYear() === pm.getFullYear() && d.getMonth() === pm.getMonth();
+    }).reduce((s, tx) => s + tx.amount, 0);
   }, [transactions, activeMonth]);
 
-  const totalSpent = useMemo(() => monthExpenses.reduce((s, tx) => s + tx.amount, 0), [monthExpenses]);
-  const prevTotalSpent = useMemo(() => prevMonthExpenses.reduce((s, tx) => s + tx.amount, 0), [prevMonthExpenses]);
+  const pctChange = prevMonthTotal > 0 ? Math.round(((totalSpent - prevMonthTotal) / prevMonthTotal) * 100) : 0;
+  const pctChangeStr = `${Math.abs(pctChange)}%`;
 
-  const pctChange = prevTotalSpent > 0 ? ((totalSpent - prevTotalSpent) / prevTotalSpent) * 100 : 0;
-  const pctChangeStr = Math.abs(Math.round(pctChange)) + '%';
+  const daysInMonth = new Date(activeMonth.getFullYear(), activeMonth.getMonth() + 1, 0).getDate();
+  const currentDay = (activeMonth.getFullYear() === now.getFullYear() && activeMonth.getMonth() === now.getMonth()) ? now.getDate() : daysInMonth;
+  const dailyAvg = totalSpent / Math.max(currentDay, 1);
+
+  const biggestExpense = useMemo(() => {
+    if (monthExpenses.length === 0) return null;
+    return [...monthExpenses].sort((a, b) => b.amount - a.amount)[0];
+  }, [monthExpenses]);
 
   const categoryTotals = useMemo(() => {
     const map: Record<string, number> = {};
     monthExpenses.forEach(tx => { map[tx.category] = (map[tx.category] ?? 0) + tx.amount; });
-    return Object.entries(map)
-      .map(([cat, amt]) => ({ category: cat as Category, amount: amt }))
-      .sort((a, b) => b.amount - a.amount);
-  }, [monthExpenses]);
+    return Object.entries(map).map(([k, v]) => ({
+      category: k,
+      amount: v,
+      color: categoryMeta[k]?.color ?? getCategoryColor(k as any),
+    })).sort((a, b) => b.amount - a.amount);
+  }, [monthExpenses, categoryMeta]);
 
-  const donutSegments = useMemo(() =>
-    categoryTotals.slice(0, 5).map(item => ({
-      value: item.amount,
-      color: getCategoryColor(item.category),
-      label: item.category,
-      percent: totalSpent > 0 ? Math.round((item.amount / totalSpent) * 100) : 0,
-    })),
-    [categoryTotals, totalSpent]
-  );
+  const topCat = categoryTotals[0] || null;
 
-  const { trendData, trendLabels } = useMemo(() => {
-    const yr = activeMonth.getFullYear();
-    const mo = activeMonth.getMonth();
-    const daysInMonth = new Date(yr, mo + 1, 0).getDate();
+  const donutSegments = useMemo(() => {
+    if (totalSpent === 0) return [];
+    return categoryTotals.slice(0, 5).map(c => ({
+      label: c.category,
+      value: c.amount,
+      color: c.color,
+      percent: Math.round((c.amount / totalSpent) * 100),
+    }));
+  }, [categoryTotals, totalSpent]);
 
-    // Group by ~5 intervals to make a smooth chart
-    const intervals = 5;
-    const intervalSize = Math.ceil(daysInMonth / intervals);
-    const aggregatedData = new Array(intervals).fill(0);
-
+  const trendData = useMemo(() => {
+    const weeks = [0, 0, 0, 0];
     monthExpenses.forEach(tx => {
       const d = parseDate(tx.date);
       if (!isNaN(d.getTime())) {
-        const day = d.getDate() - 1;
-        const bucket = Math.min(Math.floor(day / intervalSize), intervals - 1);
-        aggregatedData[bucket] += tx.amount;
+        const day = d.getDate();
+        const wIdx = Math.min(Math.floor((day - 1) / 7), 3);
+        weeks[wIdx] += tx.amount;
       }
     });
-
-    const labels = [
-      `1 ${MONTH_SHORT[mo]}`,
-      `8 ${MONTH_SHORT[mo]}`,
-      `15 ${MONTH_SHORT[mo]}`,
-      `22 ${MONTH_SHORT[mo]}`,
-      `31 ${MONTH_SHORT[mo]}`,
-    ];
-
-    return { trendData: aggregatedData, trendLabels: labels };
-  }, [monthExpenses, activeMonth]);
-
-  // Metrics Logic
-  const daysPassed = (activeMonth.getMonth() === now.getMonth() && activeMonth.getFullYear() === now.getFullYear()) ? now.getDate() : new Date(activeMonth.getFullYear(), activeMonth.getMonth() + 1, 0).getDate();
-  const dailyAvg = totalSpent / Math.max(daysPassed, 1);
-
-  let biggestExpense = null;
-  if (monthExpenses.length > 0) {
-    biggestExpense = monthExpenses.reduce((prev, current) => (prev.amount > current.amount) ? prev : current);
-  }
+    return weeks;
+  }, [monthExpenses]);
+  const trendLabels = ['W1', 'W2', 'W3', 'W4'];
 
   const budgetLeft = monthlyBudget - totalSpent;
   const budgetPct = monthlyBudget > 0 ? Math.round((totalSpent / monthlyBudget) * 100) : 0;
-  const topCat = categoryTotals[0];
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <RNStatusBar barStyle="light-content" backgroundColor="#09090B" />
+    <SafeAreaView style={[styles.safe, { backgroundColor: C.background }]} edges={['top', 'bottom']}>
+      <RNStatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} backgroundColor={C.background} />
 
-      {/* ── Header ── */}
       <View style={styles.header}>
         <View style={{ width: 36 }} />
-        <Text style={styles.headerTitle}>Analytics</Text>
+        <Text style={[styles.headerTitle, { color: C.textPrimary }]}>Analytics</Text>
         <View style={{ width: 36 }} />
       </View>
 
-      {/* ── Date Selector ── */}
       <View style={styles.dateSelectorWrap}>
-        <TouchableOpacity style={styles.dateArrow} onPress={prevMonth}>
-          <ChevronLeft size={16} color="#FFF" />
+        <TouchableOpacity style={[styles.dateArrow, { backgroundColor: C.surface, borderColor: C.border }]} onPress={prevMonth}>
+          <ChevronLeft size={16} color={C.textPrimary} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.datePill}>
-          <Text style={styles.dateText}>{monthLabel}</Text>
-          <ChevronDown size={14} color="#888" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.dateArrow} onPress={nextMonth} disabled={isFutureMonth}>
-          <ChevronRight size={16} color={isFutureMonth ? '#333' : '#FFF'} />
+        <View style={[styles.datePill, { backgroundColor: C.surface, borderColor: C.border }]}>
+          <Text style={[styles.dateText, { color: C.textPrimary }]}>{monthLabel}</Text>
+        </View>
+        <TouchableOpacity style={[styles.dateArrow, { backgroundColor: C.surface, borderColor: C.border }]} onPress={nextMonth} disabled={isFutureMonth}>
+          <ChevronRight size={16} color={isFutureMonth ? C.textMuted : C.textPrimary} />
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* ── Trend Card ── */}
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: C.surface, borderColor: C.border }]}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Monthly Spending Trend</Text>
+            <Text style={[styles.cardTitle, { color: C.textPrimary }]}>Monthly Spending Trend</Text>
           </View>
 
-          <Text style={styles.trendValue}>{sym}{totalSpent.toLocaleString('en-IN')}</Text>
-          <Text style={styles.trendSub}>Total Spent in {MONTH_SHORT[activeMonth.getMonth()]}</Text>
+          <Text style={[styles.trendValue, { color: C.textPrimary }]}>{sym}{totalSpent.toLocaleString('en-IN')}</Text>
+          <Text style={[styles.trendSub, { color: C.textSecondary }]}>Total Spent in {MONTH_SHORT[activeMonth.getMonth()]}</Text>
 
           <View style={styles.trendBadgeRow}>
-            <View style={[styles.badge, { backgroundColor: '#1A2E20', borderColor: '#22C55E' }]}>
+            <View style={[styles.badge, { backgroundColor: 'rgba(34,197,94,0.1)', borderColor: '#22C55E' }]}>
               <ArrowDown size={12} color="#22C55E" />
               <Text style={styles.badgeText}>{pctChangeStr}</Text>
             </View>
-            <Text style={styles.trendSubText}>vs {MONTH_SHORT[activeMonth.getMonth() === 0 ? 11 : activeMonth.getMonth() - 1]} {activeMonth.getFullYear()}</Text>
+            <Text style={[styles.trendSubText, { color: C.textSecondary }]}>vs {MONTH_SHORT[activeMonth.getMonth() === 0 ? 11 : activeMonth.getMonth() - 1]} {activeMonth.getFullYear()}</Text>
           </View>
 
-          <SpendingLineChart data={trendData} labels={trendLabels} color="#22C55E" />
+          <SpendingLineChart data={trendData} labels={trendLabels} color="#22C55E" gridColor={C.border} textColor={C.textSecondary} />
         </View>
 
-        {/* ── Grid Cards ── */}
         <View style={styles.grid}>
           <MetricCard
             icon={<Activity size={20} color="#22C55E" />}
             title="Daily Average"
             value={`${sym}${Math.round(dailyAvg).toLocaleString('en-IN')}`}
             badgeText="10%" badgeColor="#22C55E" subtitle="vs Apr"
+            colors={C}
           />
           <MetricCard
             icon={<Briefcase size={20} color="#A855F7" />}
             title="Biggest Expense"
             value={biggestExpense ? `${sym}${biggestExpense.amount.toLocaleString('en-IN')}` : `${sym}0`}
-            subtitle={biggestExpense ? <Text><Text style={{ color: '#A855F7' }}>{biggestExpense.category}</Text> • {parseDate(biggestExpense.date).getDate()} {MONTH_SHORT[parseDate(biggestExpense.date).getMonth()]}</Text> : "None"}
+            subtitle={biggestExpense ? `${biggestExpense.category} • ${parseDate(biggestExpense.date).getDate()} ${MONTH_SHORT[parseDate(biggestExpense.date).getMonth()]}${biggestExpense.time ? '\n' + biggestExpense.time : ''}` : "None"}
+            colors={C}
           />
           <MetricCard
             icon={<Wallet size={20} color="#EAB308" />}
             title="Budget Left"
             value={monthlyBudget > 0 ? `${sym}${Math.max(0, budgetLeft).toLocaleString('en-IN')}` : "No Budget"}
-            subtitle={monthlyBudget > 0 ? <Text><Text style={{ color: '#22C55E' }}>{100 - budgetPct}%</Text> of {sym}{monthlyBudget.toLocaleString('en-IN')}</Text> : "Set a budget"}
+            subtitle={monthlyBudget > 0 ? `${100 - budgetPct}% of ${sym}${monthlyBudget.toLocaleString('en-IN')}` : "Set a budget"}
+            colors={C}
           />
           <MetricCard
             icon={<PieChart size={20} color="#3B82F6" />}
             title="Top Category"
             value={topCat ? topCat.category : "None"}
-            subtitle={topCat ? <Text><Text style={{ color: '#A855F7' }}>{sym}{topCat.amount.toLocaleString('en-IN')}</Text> • {totalSpent > 0 ? Math.round((topCat.amount / totalSpent) * 100) : 0}%</Text> : ""}
+            subtitle={topCat ? `${sym}${topCat.amount.toLocaleString('en-IN')} • ${totalSpent > 0 ? Math.round((topCat.amount / totalSpent) * 100) : 0}%` : ""}
+            colors={C}
           />
         </View>
 
-        {/* ── Category Breakdown ── */}
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: C.surface, borderColor: C.border }]}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Category Breakdown</Text>
-            <TouchableOpacity style={styles.filterBtn}>
-              <Text style={styles.filterBtnText}>By Amount</Text>
-              <ChevronDown size={14} color="#888" />
-            </TouchableOpacity>
+            <Text style={[styles.cardTitle, { color: C.textPrimary }]}>Category Breakdown</Text>
           </View>
 
           <View style={styles.breakdownContent}>
@@ -332,11 +310,11 @@ export const AnalyticsScreen = () => {
                   <View key={i} style={styles.breakdownRow}>
                     <View style={styles.breakdownLeft}>
                       {meta?.emoji ? <Text style={{ fontSize: 14, width: 20 }}>{meta.emoji}</Text> : <View style={[styles.breakdownDot, { backgroundColor: seg.color }]} />}
-                      <Text style={styles.breakdownName} numberOfLines={1}>{seg.label}</Text>
+                      <Text style={[styles.breakdownName, { color: C.textPrimary }]} numberOfLines={1}>{seg.label}</Text>
                     </View>
                     <View style={styles.breakdownRight}>
-                      <Text style={styles.breakdownAmt}>{sym}{seg.value.toLocaleString('en-IN')}</Text>
-                      <Text style={styles.breakdownPct}>{seg.percent}%</Text>
+                      <Text style={[styles.breakdownAmt, { color: C.textPrimary }]}>{sym}{seg.value.toLocaleString('en-IN')}</Text>
+                      <Text style={[styles.breakdownPct, { color: C.textSecondary }]}>{seg.percent}%</Text>
                     </View>
                   </View>
                 );
@@ -345,78 +323,53 @@ export const AnalyticsScreen = () => {
           </View>
         </View>
 
-        {/* ── Insight Card ── */}
-        <View style={styles.insightCard}>
-          <View style={styles.insightIcon}>
-            <TrendingUp size={20} color="#22C55E" />
-          </View>
-          <View style={styles.insightTextWrap}>
-            <Text style={styles.insightTitle}>Great job! 🎉</Text>
-            <Text style={styles.insightSub}>You spent {pctChangeStr} less than last month.</Text>
-          </View>
-          <TouchableOpacity style={styles.insightBtn}>
-            <Text style={styles.insightBtnText}>View Insights</Text>
-          </TouchableOpacity>
-        </View>
-
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#09090B', paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
+  safe: { flex: 1 },
 
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
-  headerIcon: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', borderRadius: 18, backgroundColor: '#131315', borderWidth: 1, borderColor: '#27272A' },
+  headerTitle: { fontSize: 20, fontWeight: '700' },
 
   dateSelectorWrap: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, marginBottom: 20 },
-  dateArrow: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#131315', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#27272A' },
-  datePill: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#131315', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#27272A' },
-  dateText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
+  dateArrow: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  datePill: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  dateText: { fontSize: 14, fontWeight: '600' },
 
   scroll: { paddingHorizontal: 16, paddingBottom: 110 },
 
-  card: { backgroundColor: '#131315', borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#27272A' },
+  card: { borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  cardTitle: { color: '#FFF', fontSize: 15, fontWeight: '600' },
-  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#09090B', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: '#27272A' },
-  filterBtnText: { color: '#888', fontSize: 12, fontWeight: '500' },
+  cardTitle: { fontSize: 15, fontWeight: '600' },
 
-  trendValue: { color: '#FFF', fontSize: 32, fontWeight: '800', letterSpacing: -1, marginBottom: 4 },
-  trendSub: { color: '#888', fontSize: 13, marginBottom: 12 },
+  trendValue: { fontSize: 32, fontWeight: '800', letterSpacing: -1, marginBottom: 4 },
+  trendSub: { fontSize: 13, marginBottom: 12 },
   trendBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
   badgeText: { color: '#22C55E', fontSize: 12, fontWeight: '700' },
-  trendSubText: { color: '#888', fontSize: 12 },
+  trendSubText: { fontSize: 12 },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 },
-  metricCard: { flex: 1, minWidth: '45%', backgroundColor: '#131315', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#27272A' },
-  metricIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1A2E20', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  metricTitle: { color: '#888', fontSize: 12, marginBottom: 6 },
-  metricValue: { color: '#FFF', fontSize: 20, fontWeight: '700', marginBottom: 6 },
+  metricCard: { flex: 1, minWidth: '45%', borderRadius: 20, padding: 16, borderWidth: 1 },
+  metricIconWrap: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  metricTitle: { fontSize: 12, marginBottom: 6 },
+  metricValue: { fontSize: 20, fontWeight: '700', marginBottom: 6 },
   metricBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metricBadge: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   metricBadgeText: { fontSize: 11, fontWeight: '700' },
-  metricSub: { color: '#888', fontSize: 11 },
-  metricSubColored: { color: '#888', fontSize: 11 },
+  metricSub: { fontSize: 11, lineHeight: 15 },
+  metricSubColored: { fontSize: 11, lineHeight: 15 },
 
-  breakdownContent: { flexDirection: 'row', alignItems: 'center', marginTop: 16 },
-  breakdownList: { flex: 1, paddingLeft: 10, gap: 16 },
+  breakdownContent: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
+  breakdownList: { flex: 1.2, paddingLeft: 14, gap: 12 },
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   breakdownLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
   breakdownDot: { width: 10, height: 10, borderRadius: 5 },
-  breakdownName: { color: '#FFF', fontSize: 13, flex: 1 },
-  breakdownRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  breakdownAmt: { color: '#FFF', fontSize: 13, fontWeight: '600' },
-  breakdownPct: { color: '#888', fontSize: 13, width: 30, textAlign: 'right' },
-
-  insightCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#131315', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: '#27272A' },
-  insightIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1A2E20', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  insightTextWrap: { flex: 1 },
-  insightTitle: { color: '#22C55E', fontSize: 14, fontWeight: '700', marginBottom: 2 },
-  insightSub: { color: '#888', fontSize: 12 },
-  insightBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#1A2E20', backgroundColor: '#0B1F11' },
-  insightBtnText: { color: '#22C55E', fontSize: 12, fontWeight: '600' },
+  breakdownName: { fontSize: 13, fontWeight: '500', flex: 1 },
+  breakdownRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  breakdownAmt: { fontSize: 13, fontWeight: '700' },
+  breakdownPct: { fontSize: 12.5, fontWeight: '600', minWidth: 42, textAlign: 'right' },
 });

@@ -9,7 +9,7 @@ import { AnalyticsScreen } from '../screens/main/AnalyticsScreen';
 import { ProfileScreen } from '../screens/main/ProfileScreen';
 import { BudgetsScreen } from '../screens/main/BudgetsScreen';
 import { AccountsScreen } from '../screens/main/AccountsScreen';
-import { darkColors as C } from '../theme/colors';
+import { useThemeColors } from '../theme/colors';
 
 export type TabParamList = {
   Add: undefined;
@@ -24,6 +24,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
 const TAB_H = 60;
 
 export const TabNavigator = () => {
+  const C = useThemeColors();
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 6 : 0);
   const tabBarHeight = TAB_H + bottomPad;
@@ -43,12 +44,12 @@ export const TabNavigator = () => {
           elevation: 24,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.25,
+          shadowOpacity: 0.1,
           shadowRadius: 16,
           position: 'absolute',
         },
-        tabBarActiveTintColor: '#22C55E', // Using the active green color
-        tabBarInactiveTintColor: '#71717A',
+        tabBarActiveTintColor: '#22C55E', // Using active green color
+        tabBarInactiveTintColor: C.textSecondary,
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '700',

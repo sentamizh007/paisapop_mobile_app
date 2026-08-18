@@ -1,12 +1,13 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar,
+  View, Text, StyleSheet, Platform, StatusBar as RNStatusBar,
   TouchableOpacity, TextInput, Alert, SectionList,
-  ActivityIndicator, Modal, ScrollView,
+  ActivityIndicator, ScrollView, useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../store/useStore';
 import { useThemeColors } from '../../theme/colors';
-import { X, Search, Filter, Calendar, ChevronDown, ChevronLeft, ChevronRight, PieChart, ArrowDown, ArrowUp } from 'lucide-react-native';
+import { X, Search, ChevronLeft, ChevronRight, ArrowDown, ArrowUp } from 'lucide-react-native';
 import { MONTH_NAMES } from '../../utils/exportUtils';
 import { TransactionCard } from '../../components/TransactionCard';
 import { getCurrencySymbol } from '../../utils/mockData';
@@ -49,7 +50,12 @@ const getGreeting = () => {
 
 export const HistoryScreen = () => {
   const C = useThemeColors();
+  const theme = useStore(s => s.theme);
   const { transactions, removeTransaction, categoryMeta, isLoading, userName } = useStore();
+
+  const insets = useSafeAreaInsets();
+  const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 6 : 0);
+  const { width: windowWidth } = useWindowDimensions();
 
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('All');
   const [activeMonth, setActiveMonth] = useState(new Date());
@@ -111,127 +117,204 @@ export const HistoryScreen = () => {
     ]);
   }, [removeTransaction]);
 
-  return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: '#09090B' }]}>
-      <RNStatusBar barStyle="light-content" backgroundColor="#09090B" />
-
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={{ color: '#A1A1AA', fontSize: 13, marginBottom: 4, fontWeight: '500' }}>
-            {getGreeting().text} {getGreeting().icon}
-          </Text>
-          <Text style={{ color: '#FFF', fontSize: 22, fontWeight: '700' }}>
-            {userName || 'User'} 👋
-          </Text>
-        </View>
+  const renderHeader = () => (
+    <View style={{ paddingBottom: 8 }}>
+      {/* User Greeting */}
+      <View style={styles.greetingWrap}>
+        <Text style={{ color: C.textSecondary, fontSize: 13, marginBottom: 2, fontWeight: '500' }}>
+          {getGreeting().text} {getGreeting().icon}
+        </Text>
+        <Text style={{ color: C.textPrimary, fontSize: 21, fontWeight: '800' }}>
+          {userName || 'User'} 👋
+        </Text>
       </View>
 
       {/* Analytics-Style Month Selector */}
       <View style={styles.dateSelectorWrap}>
-        <TouchableOpacity style={styles.dateBtn} onPress={prevMonth}>
-          <ChevronLeft size={20} color="#FFF" />
+        <TouchableOpacity
+          style={[styles.dateBtn, { backgroundColor: C.surface, borderColor: C.border }]}
+          onPress={prevMonth}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <ChevronLeft size={18} color={C.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.dateLabel}>{monthLabel}</Text>
-        <TouchableOpacity style={styles.dateBtn} onPress={nextMonth} disabled={activeMonth.getMonth() === now.getMonth() && activeMonth.getFullYear() === now.getFullYear()}>
-          <ChevronRight size={20} color={activeMonth.getMonth() === now.getMonth() && activeMonth.getFullYear() === now.getFullYear() ? '#333' : '#FFF'} />
+        <Text style={[styles.dateLabel, { color: C.textPrimary }]}>{monthLabel}</Text>
+        <TouchableOpacity 
+          style={[styles.dateBtn, { backgroundColor: C.surface, borderColor: C.border }]} 
+          onPress={nextMonth} 
+          disabled={activeMonth.getMonth() === now.getMonth() && activeMonth.getFullYear() === now.getFullYear()}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <ChevronRight
+            size={18}
+            color={activeMonth.getMonth() === now.getMonth() && activeMonth.getFullYear() === now.getFullYear() ? C.textMuted : C.textPrimary}
+          />
         </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
-      <View style={styles.searchWrap}>
-        <Search size={18} color="#888" style={{ marginLeft: 12 }} />
+      <View style={[styles.searchWrap, { backgroundColor: C.surface, borderColor: C.border }]}>
+        <Search size={16} color={C.textSecondary} style={{ marginLeft: 12 }} />
         <TextInput
-          style={styles.searchInput}
-          placeholder="Search transactions"
-          placeholderTextColor="#888"
+          style={[styles.searchInput, { color: C.textPrimary }]}
+          placeholder="Search transactions, notes, payees..."
+          placeholderTextColor={C.textMuted}
           value={search}
           onChangeText={setSearch}
         />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => setSearch('')} style={{ padding: 8 }}>
+            <X size={16} color={C.textMuted} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Filter Pills */}
       <View style={styles.filterRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 0 }}>
           <TouchableOpacity
-            style={[styles.pill, typeFilter === 'All' && styles.pillActiveAll]}
+            style={[
+              styles.pill,
+              { backgroundColor: C.surface, borderColor: typeFilter === 'All' ? '#22C55E' : C.border },
+              typeFilter === 'All' && { backgroundColor: 'rgba(34,197,94,0.12)' }
+            ]}
             onPress={() => setTypeFilter('All')}
+            activeOpacity={0.7}
           >
-            <Text style={[styles.pillText, typeFilter === 'All' && { color: '#22C55E' }]}>All</Text>
+            <Text style={[styles.pillText, { color: typeFilter === 'All' ? '#22C55E' : C.textSecondary, fontWeight: typeFilter === 'All' ? '700' : '600' }]}>
+              All
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.pill, typeFilter === 'expense' && styles.pillActive]}
+            style={[
+              styles.pill,
+              { backgroundColor: C.surface, borderColor: typeFilter === 'expense' ? '#EF4444' : C.border },
+              typeFilter === 'expense' && { backgroundColor: 'rgba(239,68,68,0.12)' }
+            ]}
             onPress={() => setTypeFilter('expense')}
+            activeOpacity={0.7}
           >
-            <ArrowDown size={14} color="#EF4444" />
-            <Text style={styles.pillText}>Expenses</Text>
+            <ArrowDown size={13} color={typeFilter === 'expense' ? '#EF4444' : C.textSecondary} />
+            <Text style={[styles.pillText, { color: typeFilter === 'expense' ? '#EF4444' : C.textSecondary, fontWeight: typeFilter === 'expense' ? '700' : '600' }]}>
+              Expenses
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.pill, typeFilter === 'income' && styles.pillActive]}
+            style={[
+              styles.pill,
+              { backgroundColor: C.surface, borderColor: typeFilter === 'income' ? '#22C55E' : C.border },
+              typeFilter === 'income' && { backgroundColor: 'rgba(34,197,94,0.12)' }
+            ]}
             onPress={() => setTypeFilter('income')}
+            activeOpacity={0.7}
           >
-            <ArrowUp size={14} color="#22C55E" />
-            <Text style={styles.pillText}>Income</Text>
+            <ArrowUp size={13} color={typeFilter === 'income' ? '#22C55E' : C.textSecondary} />
+            <Text style={[styles.pillText, { color: typeFilter === 'income' ? '#22C55E' : C.textSecondary, fontWeight: typeFilter === 'income' ? '700' : '600' }]}>
+              Income
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
 
       {/* Summary Card */}
-      <View style={styles.summaryWrapper}>
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryHeader}>
-            <View>
-              <Text style={styles.summaryHeaderLabel}>Summary for</Text>
-              <Text style={[styles.summaryDateText, { marginTop: 2, color: '#FFF' }]}>{monthLabel}</Text>
+      <View style={[styles.summaryCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+        <View style={styles.summaryHeader}>
+          <Text style={[styles.summaryHeaderLabel, { color: C.textSecondary }]}>Monthly Summary</Text>
+          <Text style={[styles.summaryDateText, { color: C.textPrimary }]}>{monthLabel}</Text>
+        </View>
+
+        <View style={styles.summaryRow}>
+          {/* Expenses Column */}
+          <View style={styles.summaryCol}>
+            <Text style={[styles.summaryLabel, { color: C.textSecondary }]}>Expenses</Text>
+            <View style={styles.summaryValWrap}>
+              <Text
+                style={[styles.summaryVal, { color: C.textPrimary }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {sym}{summarySpent.toLocaleString('en-IN')}
+              </Text>
+              <ArrowDown size={11} color="#EF4444" />
             </View>
           </View>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryCol}>
-              <Text style={styles.summaryLabel}>Total Expenses</Text>
-              <View style={styles.summaryValWrap}>
-                <Text style={styles.summaryVal}>{sym}{summarySpent.toLocaleString('en-IN')}</Text>
-                <ArrowDown size={12} color="#EF4444" />
-              </View>
+
+          <View style={[styles.summaryDivider, { backgroundColor: C.border }]} />
+
+          {/* Income Column */}
+          <View style={styles.summaryCol}>
+            <Text style={[styles.summaryLabel, { color: C.textSecondary }]}>Income</Text>
+            <View style={styles.summaryValWrap}>
+              <Text
+                style={[styles.summaryVal, { color: C.textPrimary }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {sym}{summaryIncome.toLocaleString('en-IN')}
+              </Text>
+              <ArrowUp size={11} color="#22C55E" />
             </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryCol}>
-              <Text style={styles.summaryLabel}>Total Income</Text>
-              <View style={styles.summaryValWrap}>
-                <Text style={styles.summaryVal}>{sym}{summaryIncome.toLocaleString('en-IN')}</Text>
-                <ArrowUp size={12} color="#22C55E" />
-              </View>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryCol}>
-              <Text style={styles.summaryLabel}>Net Balance</Text>
-              <View style={styles.summaryValWrap}>
-                <Text style={[styles.summaryVal, { color: '#22C55E' }]}>{sym}{Math.abs(netBalance).toLocaleString('en-IN')}</Text>
-                <ArrowUp size={12} color="#22C55E" />
-              </View>
+          </View>
+
+          <View style={[styles.summaryDivider, { backgroundColor: C.border }]} />
+
+          {/* Net Balance Column */}
+          <View style={styles.summaryCol}>
+            <Text style={[styles.summaryLabel, { color: C.textSecondary }]}>Net Balance</Text>
+            <View style={styles.summaryValWrap}>
+              <Text
+                style={[
+                  styles.summaryVal,
+                  { color: netBalance >= 0 ? '#22C55E' : '#EF4444' }
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {netBalance < 0 ? '-' : ''}{sym}{Math.abs(netBalance).toLocaleString('en-IN')}
+              </Text>
+              {netBalance >= 0 ? (
+                <ArrowUp size={11} color="#22C55E" />
+              ) : (
+                <ArrowDown size={11} color="#EF4444" />
+              )}
             </View>
           </View>
         </View>
       </View>
+    </View>
+  );
 
-      {/* Transaction List */}
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: C.background }]} edges={['top', 'bottom']}>
+      <RNStatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} backgroundColor={C.background} />
+
+      {/* Fixed Top Bar */}
+      <View style={styles.header}>
+        <View style={{ width: 36 }} />
+        <Text style={[styles.headerTitle, { color: C.textPrimary }]}>History</Text>
+        <View style={{ width: 36 }} />
+      </View>
+
+      {/* Scrollable Content Container */}
       {isLoading ? (
         <View style={styles.centerState}>
           <ActivityIndicator size="large" color="#22C55E" />
-        </View>
-      ) : sections.length === 0 ? (
-        <View style={styles.centerState}>
-          <Text style={{ fontSize: 40, marginBottom: 12 }}>{search ? '🔍' : '🗂️'}</Text>
-          <Text style={{ color: '#FFF', fontSize: 18, fontWeight: '700' }}>No transactions found</Text>
         </View>
       ) : (
         <SectionList
           sections={sections}
           keyExtractor={tx => tx.id}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110 }}
+          ListHeaderComponent={renderHeader}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingBottom: 60 + bottomPad + 30,
+          }}
           renderSectionHeader={({ section: { title } }) => (
-            <Text style={styles.sectionTitle}>{title}</Text>
+            <Text style={[styles.sectionTitle, { color: C.textSecondary }]}>{title}</Text>
           )}
           renderItem={({ item, index, section }) => (
             <TransactionCard
@@ -245,6 +328,19 @@ export const HistoryScreen = () => {
               isLast={index === section.data.length - 1}
             />
           )}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Text style={{ fontSize: 36, marginBottom: 8 }}>{search ? '🔍' : '🗂️'}</Text>
+              <Text style={[styles.emptyTitle, { color: C.textPrimary }]}>
+                {search ? 'No matching transactions' : 'No transactions found'}
+              </Text>
+              <Text style={[styles.emptySub, { color: C.textSecondary }]}>
+                {search
+                  ? `No results found for "${search}". Try searching with another keyword.`
+                  : `No records found in ${monthLabel}.`}
+              </Text>
+            </View>
+          }
           showsVerticalScrollIndicator={false}
           stickySectionHeadersEnabled={false}
         />
@@ -254,50 +350,40 @@ export const HistoryScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
+  safe: { flex: 1 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10 },
+  headerTitle: { fontSize: 18, fontWeight: '700' },
 
-  dateSelectorWrap: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, marginBottom: 12 },
-  dateBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#131315', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#27272A' },
-  dateLabel: { color: '#FFF', fontSize: 16, fontWeight: '700', minWidth: 100, textAlign: 'center' },
+  greetingWrap: { marginBottom: 14, paddingTop: 4 },
 
-  searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#131315', marginHorizontal: 16, borderRadius: 12, paddingRight: 12, marginBottom: 16, borderWidth: 1, borderColor: '#27272A', height: 44 },
-  searchInput: { flex: 1, height: '100%', color: '#FFF', fontSize: 15, paddingHorizontal: 10 },
+  dateSelectorWrap: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 14, marginBottom: 12 },
+  dateBtn: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  dateLabel: { fontSize: 15, fontWeight: '700', minWidth: 120, textAlign: 'center' },
 
-  filterRow: { marginBottom: 16 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#131315', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#27272A' },
-  pillActiveAll: { borderColor: '#22C55E' },
-  pillActive: { borderColor: '#555' },
-  pillText: { color: '#A0A0A0', fontSize: 13, fontWeight: '600' },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, paddingRight: 8, marginBottom: 12, borderWidth: 1, height: 42 },
+  searchInput: { flex: 1, height: '100%', fontSize: 14, paddingHorizontal: 10 },
 
-  summaryWrapper: { paddingHorizontal: 16, marginBottom: 16 },
-  summaryCard: { backgroundColor: '#131315', borderRadius: 16, borderWidth: 1, borderColor: '#27272A', padding: 16 },
-  summaryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  summaryHeaderLabel: { color: '#888', fontSize: 12, fontWeight: '500', marginBottom: 2 },
-  summaryDateSel: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  summaryDateText: { color: '#FFF', fontSize: 15, fontWeight: '600' },
-  summaryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#1A2E20', backgroundColor: '#0B1F11' },
-  summaryBtnText: { color: '#22C55E', fontSize: 12, fontWeight: '600' },
+  filterRow: { marginBottom: 14 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1 },
+  pillText: { fontSize: 12.5 },
+
+  summaryCard: { borderRadius: 18, borderWidth: 1, padding: 14, marginBottom: 14 },
+  summaryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  summaryHeaderLabel: { fontSize: 11.5, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  summaryDateText: { fontSize: 13, fontWeight: '600' },
 
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  summaryCol: { flex: 1 },
-  summaryLabel: { color: '#888', fontSize: 12, marginBottom: 4 },
-  summaryValWrap: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  summaryVal: { color: '#FFF', fontSize: 16, fontWeight: '700' },
-  summaryDivider: { width: 1, height: 30, backgroundColor: '#27272A', marginHorizontal: 12 },
+  summaryCol: { flex: 1, alignItems: 'center' },
+  summaryLabel: { fontSize: 11, marginBottom: 3, textAlign: 'center' },
+  summaryValWrap: { flexDirection: 'row', alignItems: 'center', gap: 3, justifyContent: 'center' },
+  summaryVal: { fontSize: 14.5, fontWeight: '700', letterSpacing: -0.3 },
+  summaryDivider: { width: 1, height: 26, marginHorizontal: 6 },
 
-  sectionTitle: { color: '#888', fontSize: 13, fontWeight: '600', marginTop: 16, marginBottom: 8 },
+  sectionTitle: { fontSize: 12.5, fontWeight: '600', marginTop: 14, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 },
 
   centerState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#131315', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '60%' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#FFF' },
-  modalClose: { padding: 4, backgroundColor: '#27272A', borderRadius: 12 },
-  modalItem: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#27272A' },
-  modalItemActive: { backgroundColor: '#1A2E20' },
-  modalItemText: { fontSize: 16, color: '#FFF', textAlign: 'center' },
-  modalItemTextActive: { color: '#22C55E', fontWeight: '700' },
+  emptyWrap: { alignItems: 'center', justifyContent: 'center', paddingVertical: 36, paddingHorizontal: 20 },
+  emptyTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4, textAlign: 'center' },
+  emptySub: { fontSize: 12.5, textAlign: 'center', lineHeight: 17 },
 });
+

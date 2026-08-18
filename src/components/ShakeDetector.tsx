@@ -10,10 +10,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Animated,
+  BackHandler,
 } from 'react-native';
+import { Accelerometer } from 'expo-sensors';
 import * as QuickActions from 'expo-quick-actions';
+import * as Linking from 'expo-linking';
 import { BlurView } from 'expo-blur';
 import { useStore } from '../store/useStore';
+import { useThemeColors } from '../theme/colors';
 import { Category } from '../utils/mockData';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -41,11 +45,15 @@ interface ShakeDetectorProps {
 export const ShakeDetector: React.FC<ShakeDetectorProps> = ({ children }) => {
   const shakeToAdd = useStore((s) => s.shakeToAdd);
   const [visible, setVisible] = useState(false);
+  const [isQuickLaunch, setIsQuickLaunch] = useState(false);
 
   const mountedRef = useRef<boolean>(true);
+  const consumedInitialQuickActionRef = useRef<boolean>(false);
+  const consumedInitialUrlRef = useRef<boolean>(false);
 
   const handleClose = useCallback(() => {
     setVisible(false);
+    setIsQuickLaunch(false);
   }, []);
 
   useEffect(() => {
@@ -55,38 +63,97 @@ export const ShakeDetector: React.FC<ShakeDetectorProps> = ({ children }) => {
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
+
     // Register the Quick Action shortcut
     QuickActions.setItems([
       {
         title: 'Quick Add',
         id: 'quick-add',
         icon: 'compose',
-        params: { href: 'quickadd' }
+        params: { href: 'quick-add' }
       }
     ]);
 
-    // Handle Quick Action clicks while app is open
+    // Handle Quick Action clicks while app is open / in background
     const subscription = QuickActions.addListener((action) => {
       if (action.id === 'quick-add' && mountedRef.current) {
+        setIsQuickLaunch(true);
         setVisible(true);
       }
     });
 
     // Handle initial Quick Action (app launched from closed state)
-    const action = QuickActions.initial;
-    if (action?.id === 'quick-add' && mountedRef.current) {
-      setVisible(true);
+    if (!consumedInitialQuickActionRef.current) {
+      const action = QuickActions.initial;
+      if (action?.id === 'quick-add' && mountedRef.current) {
+        consumedInitialQuickActionRef.current = true;
+        setIsQuickLaunch(true);
+        setVisible(true);
+      }
     }
+
+    // Handle deep link (e.g. paisapop://quick-add or paisapop://quick-add?amount=100&category=Food)
+    const handleUrl = (url: string | null) => {
+      if (!url) return;
+      try {
+        const parsed = Linking.parse(url);
+        const rawUrl = url.toLowerCase();
+
+        if (rawUrl.includes('quick-add') || rawUrl.includes('quickadd')) {
+          const qParams = parsed.queryParams || {};
+          const qAmt = parseFloat(String(qParams.amount || ''));
+          const qCat = String(qParams.category || '').trim();
+          const qNotes = String(qParams.notes || '').trim();
+
+          // If shortcut already collected amount/category directly on wallpaper
+          if (!isNaN(qAmt) && qAmt > 0 && qCat) {
+            const now = new Date();
+            useStore.getState().addTransaction({
+              title: qCat,
+              amount: qAmt,
+              category: qCat as any,
+              date: now.toISOString().split('T')[0],
+              time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              type: 'expense',
+              paymentMethod: 'Cash',
+              notes: qNotes || undefined,
+            }).then(() => {
+              if (Platform.OS === 'android') {
+                setTimeout(() => { try { BackHandler.exitApp(); } catch {} }, 300);
+              }
+            });
+            return;
+          }
+
+          if (mountedRef.current) {
+            setIsQuickLaunch(true);
+            setVisible(true);
+          }
+        }
+      } catch (err) {
+        console.warn('handleUrl error:', err);
+      }
+    };
+
+    // Cold start deep-link check (run only once)
+    if (!consumedInitialUrlRef.current) {
+      consumedInitialUrlRef.current = true;
+      Linking.getInitialURL().then(handleUrl).catch(() => {});
+    }
+
+    // Warm start deep-link listener
+    const linkingSub = Linking.addEventListener('url', (event) => handleUrl(event.url));
 
     return () => {
       subscription.remove();
+      linkingSub.remove();
     };
-  }, [shakeToAdd]);
+  }, []);
 
   return (
-    <View style={{ flex: 1 }}>
-      {children}
-      <QuickAddModal visible={visible} onClose={handleClose} />
+    <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+      {!visible && children}
+      <QuickAddModal visible={visible} isQuickLaunch={true} onClose={handleClose} />
     </View>
   );
 };
@@ -97,10 +164,11 @@ export const ShakeDetector: React.FC<ShakeDetectorProps> = ({ children }) => {
 
 interface QuickAddModalProps {
   visible: boolean;
+  isQuickLaunch?: boolean;
   onClose: () => void;
 }
 
-const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, onClose }) => {
+const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, isQuickLaunch, onClose }) => {
   const storeCategories = useStore((s) => s.categories);
   const categoryMeta = useStore((s) => s.categoryMeta);
   const addTransaction = useStore((s) => s.addTransaction);
@@ -118,6 +186,15 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, onClose }) => {
   const [note, setNote] = useState('');
 
   const amountInputRef = useRef<TextInput>(null);
+
+  const handleDismiss = useCallback(() => {
+    onClose();
+    if (isQuickLaunch && Platform.OS === 'android') {
+      setTimeout(() => {
+        try { BackHandler.exitApp(); } catch {}
+      }, 300);
+    }
+  }, [isQuickLaunch, onClose]);
 
   // ── Countdown progress animation ───────────────────────────────────────────
   // progressAnim goes from 1 → 0 over AUTO_CLOSE_MS
@@ -144,7 +221,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, onClose }) => {
 
       // Auto-close timer
       autoCloseTimer.current = setTimeout(() => {
-        onClose();
+        handleDismiss();
       }, AUTO_CLOSE_MS);
     } else {
       // Modal closed — cancel everything
@@ -161,7 +238,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, onClose }) => {
       progressAnimRef.current?.stop();
       if (autoCloseTimer.current) clearTimeout(autoCloseTimer.current);
     };
-  }, [visible]);
+  }, [visible, handleDismiss]);
 
   // Cancel auto-close when user starts interacting (types amount)
   const cancelAutoClose = useCallback(() => {
@@ -197,7 +274,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, onClose }) => {
       notes: note.trim() || undefined,
     });
 
-    onClose();
+    handleDismiss();
   };
 
   // Focus the amount input AFTER modal fully appears
@@ -211,21 +288,28 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, onClose }) => {
     setTimeout(() => navigation.navigate('Profile'), 200);
   }, [navigation, onClose]);
 
+  const theme = useStore(s => s.theme);
+  const colors = useThemeColors();
+  const isLight = theme === 'light';
+  const C = isLight
+    ? { bg: '#FFFFFF', text: '#000000', sub: '#666666', inputBg: 'rgba(0,0,0,0.05)', border: '#E4E4E7', cancelBg: 'rgba(0,0,0,0.08)' }
+    : { bg: '#18181B', text: '#FFFFFF', sub: '#A1A1AA', inputBg: 'rgba(255,255,255,0.08)', border: '#27272A', cancelBg: 'rgba(255,255,255,0.1)' };
+
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={handleDismiss}
       statusBarTranslucent
       onShow={handleModalShow}
     >
-      <BlurView intensity={50} tint="dark" style={styles.overlayFill}>
+      <BlurView intensity={isQuickLaunch ? 25 : 50} tint={isLight ? 'light' : 'dark'} style={[styles.overlayFill, isQuickLaunch && { backgroundColor: 'transparent' }]}>
         {/* Tap outside to dismiss */}
         <TouchableOpacity
           style={StyleSheet.absoluteFill}
-          onPress={onClose}
+          onPress={handleDismiss}
           activeOpacity={1}
         />
 
@@ -235,10 +319,10 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, onClose }) => {
           keyboardVerticalOffset={0}
           pointerEvents="box-none"
         >
-          <View style={[styles.popup, { marginTop: insets.top + 16 }]}>
+          <View style={[styles.popup, { marginTop: insets.top + 16, backgroundColor: C.bg, borderWidth: 1, borderColor: C.border }]}>
 
             {/* ── Countdown progress bar (top of card) ── */}
-            <View style={styles.progressTrack}>
+            <View style={[styles.progressTrack, { backgroundColor: C.border }]}>
               <Animated.View
                 style={[
                   styles.progressFill,
@@ -254,7 +338,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, onClose }) => {
 
             {/* ── Header row: title + Profile button ── */}
             <View style={styles.headerRow}>
-              <Text style={styles.shakeLabel}>📳 Quick Add</Text>
+              <Text style={[styles.shakeLabel, { color: C.sub }]}>📳 Quick Add</Text>
               {/* Profile shortcut button */}
               <TouchableOpacity
                 style={styles.profileBtn}
@@ -270,19 +354,19 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, onClose }) => {
 
             {step === 1 ? (
               <>
-                <Text style={styles.title}>How much did you spend?</Text>
+                <Text style={[styles.title, { color: C.text }]}>How much did you spend?</Text>
 
-                <View style={styles.inputWrap}>
+                <View style={[styles.inputWrap, { backgroundColor: C.inputBg }]}>
                   <TextInput
                     ref={amountInputRef}
-                    style={styles.amountInput}
+                    style={[styles.amountInput, { color: C.text }]}
                     placeholder="Amount"
-                    placeholderTextColor="rgba(0,0,0,0.3)"
+                    placeholderTextColor={C.sub}
                     keyboardType="decimal-pad"
                     value={amount}
                     onChangeText={(val) => {
                       setAmount(val);
-                      if (val.length === 1) cancelAutoClose(); // first keystroke cancels timer
+                      if (val.length === 1) cancelAutoClose();
                     }}
                     selectionColor="#007AFF"
                     returnKeyType="next"
@@ -290,11 +374,11 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, onClose }) => {
                   />
                 </View>
 
-                <View style={[styles.inputWrap, { marginTop: 12 }]}>
+                <View style={[styles.inputWrap, { marginTop: 12, backgroundColor: C.inputBg }]}>
                   <TextInput
-                    style={styles.noteInput}
+                    style={[styles.noteInput, { color: C.text }]}
                     placeholder="Notes (optional)"
-                    placeholderTextColor="rgba(0,0,0,0.3)"
+                    placeholderTextColor={C.sub}
                     value={note}
                     onChangeText={setNote}
                     selectionColor="#007AFF"
@@ -305,10 +389,10 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, onClose }) => {
 
                 <View style={styles.btnRow}>
                   <TouchableOpacity
-                    style={[styles.actionBtn, styles.cancelBtn]}
+                    style={[styles.actionBtn, { backgroundColor: C.cancelBg }]}
                     onPress={onClose}
                   >
-                    <Text style={[styles.btnText, { color: '#000' }]}>Cancel</Text>
+                    <Text style={[styles.btnText, { color: C.text }]}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[
@@ -329,7 +413,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, onClose }) => {
                   <TouchableOpacity onPress={() => setStep(1)}>
                     <Text style={styles.backBtn}>← Back</Text>
                   </TouchableOpacity>
-                  <Text style={styles.title}>Choose a category</Text>
+                  <Text style={[styles.title, { color: C.text }]}>Choose a category</Text>
                 </View>
 
                 <ScrollView
@@ -344,14 +428,13 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, onClose }) => {
                         key={item}
                         style={[
                           styles.catRow,
+                          { borderBottomColor: C.border },
                           idx === storeCategories.length - 1 && { borderBottomWidth: 0 },
                         ]}
                         onPress={() => handleSave(item)}
                       >
-                        <Text style={styles.catEmoji}>
-                          {meta?.emoji ? meta.emoji : '🏷️'}
-                        </Text>
-                        <Text style={styles.catName}>{item}</Text>
+                        <Text style={styles.catEmoji}>{meta?.emoji ?? '🏷️'}</Text>
+                        <Text style={[styles.catName, { color: C.text }]}>{item}</Text>
                       </TouchableOpacity>
                     );
                   })}
