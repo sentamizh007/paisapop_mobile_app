@@ -5,7 +5,7 @@ import {
   Modal, TextInput, Alert, KeyboardAvoidingView, Vibration,
   LayoutAnimation, UIManager, Pressable
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, G } from 'react-native-svg';
 import { useStore } from '../../store/useStore';
 import { useThemeColors } from '../../theme/colors';
@@ -76,6 +76,8 @@ const BudgetRingChart = ({ spent, total, colorsList, trackColor, textColor, text
 export const BudgetsScreen = () => {
   const C = useThemeColors();
   const theme = useStore(s => s.theme);
+  const insets = useSafeAreaInsets();
+  const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 6 : 0);
   const transactions = useStore(s => s.transactions);
   const currency = useStore(s => s.currency);
   const categoryMeta = useStore(s => s.categoryMeta);
@@ -235,7 +237,7 @@ export const BudgetsScreen = () => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 60 + bottomPad + 30 }]} showsVerticalScrollIndicator={false}>
         
         {/* ── Total Monthly Budget Card ── */}
         <TouchableOpacity 
@@ -347,12 +349,12 @@ export const BudgetsScreen = () => {
       </ScrollView>
 
       {/* ── Set / Edit Budget Modal ── */}
-      <Modal visible={showAddModal} transparent animationType="slide">
+      <Modal visible={showAddModal} transparent animationType="slide" onRequestClose={() => setShowAddModal(false)}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
-          <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border }]}>
+          <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border, paddingBottom: Math.max(insets.bottom, 16) + 4 }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: C.textPrimary }]}>
                 {isExistingBudget ? 'Edit Budget' : 'Set Budget'}

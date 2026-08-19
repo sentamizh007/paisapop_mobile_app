@@ -9,7 +9,7 @@ import {
   ChevronLeft, ReceiptText, ArrowDown, ArrowUp, ArrowRightLeft,
   FileText, User, CreditCard, Calendar, Clock, Tag, Receipt,
   Camera, Users, Delete, ChevronRight, X, Wallet, Banknote, Landmark, Smartphone, Check,
-  Bell, Trash2, CheckCheck, AlertTriangle, Sparkles, Info, Image as ImageIcon, Eye, Search
+  Bell, Trash2, CheckCheck, AlertTriangle, Sparkles, Info, Image as ImageIcon, Eye, Search, Plus
 } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
@@ -138,7 +138,7 @@ export const AddExpenseScreen = () => {
     { name: 'Chaayos', category: 'Food', icon: '🍵' },
     { name: 'Haldiram\'s', category: 'Food', icon: '🍛' },
     { name: 'Barbeque Nation', category: 'Food', icon: '🍢' },
-    
+
     // Shopping
     { name: 'Amazon', category: 'Shopping', icon: '📦' },
     { name: 'Flipkart', category: 'Shopping', icon: '🛍️' },
@@ -558,8 +558,8 @@ export const AddExpenseScreen = () => {
                     backgroundColor: isExpense
                       ? 'rgba(34, 197, 94, 0.12)'
                       : isIncome
-                      ? 'rgba(59, 130, 246, 0.12)'
-                      : 'rgba(168, 85, 247, 0.12)',
+                        ? 'rgba(59, 130, 246, 0.12)'
+                        : 'rgba(168, 85, 247, 0.12)',
                     borderColor: isExpense ? '#22C55E' : isIncome ? '#3B82F6' : '#A855F7',
                   }
                 ]}
@@ -617,7 +617,7 @@ export const AddExpenseScreen = () => {
           {/* ── Category / Transfer Quick Bar ── */}
           {isTransfer ? (
             <View style={styles.metaGridRow}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
                   styles.metaColBtn,
                   { flex: 1, height: isSmallScreen ? 34 : 38, backgroundColor: C.surface, borderColor: paymentMode ? '#A855F7' : C.border }
@@ -630,7 +630,7 @@ export const AddExpenseScreen = () => {
                   From: {paymentMode || 'Select'}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
                   styles.metaColBtn,
                   { flex: 1, height: isSmallScreen ? 34 : 38, backgroundColor: C.surface, borderColor: toPaymentMode ? '#A855F7' : C.border }
@@ -686,8 +686,8 @@ export const AddExpenseScreen = () => {
                             UIManager.setLayoutAnimationEnabledExperimental(true);
                           }
                           LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                        } catch (_) {}
-                        try { Vibration.vibrate(50); } catch (_) {}
+                        } catch (_) { }
+                        try { Vibration.vibrate(50); } catch (_) { }
                         reorderCategoryToFirst(cat);
                         setSelectedCategory(cat);
                         setTimeout(() => {
@@ -889,9 +889,9 @@ export const AddExpenseScreen = () => {
       </View>
 
       {/* ── Notifications Modal ── */}
-      <Modal visible={showNotificationsModal} transparent animationType="slide">
+      <Modal visible={showNotificationsModal} transparent animationType="slide" onRequestClose={() => setShowNotificationsModal(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '80%', backgroundColor: C.surface, borderColor: C.border }]}>
+          <View style={[styles.modalContent, { maxHeight: '80%', backgroundColor: C.surface, borderColor: C.border, paddingBottom: Math.max(insets.bottom, 16) + 4 }]}>
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, marginRight: 8 }}>
                 <View style={[styles.notifIconHeaderWrap, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
@@ -974,9 +974,9 @@ export const AddExpenseScreen = () => {
       </Modal>
 
       {/* ── Merchant / Payee Picker Modal ── */}
-      <Modal visible={showMerchantModal} transparent animationType="slide">
+      <Modal visible={showMerchantModal} transparent animationType="slide" onRequestClose={() => setShowMerchantModal(false)}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
           <View
@@ -987,6 +987,7 @@ export const AddExpenseScreen = () => {
                 maxHeight: '80%',
                 backgroundColor: C.surface,
                 borderColor: C.border,
+                paddingBottom: Math.max(insets.bottom, 16) + 4,
               }
             ]}
           >
@@ -1206,12 +1207,12 @@ export const AddExpenseScreen = () => {
       </Modal>
 
       {/* ── Add Custom Category Modal ── */}
-      <Modal visible={showAddCatModal} transparent animationType="slide">
+      <Modal visible={showAddCatModal} transparent animationType="slide" onRequestClose={() => setShowAddCatModal(false)}>
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border }]}>
+          <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border, paddingBottom: Math.max(insets.bottom, 16) + 4 }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: C.textPrimary }]}>Add Category</Text>
               <TouchableOpacity onPress={() => setShowAddCatModal(false)}>
@@ -1288,12 +1289,12 @@ export const AddExpenseScreen = () => {
       </Modal>
 
       {/* ── Note Modal ── */}
-      <Modal visible={showNoteModal} transparent animationType="slide">
+      <Modal visible={showNoteModal} transparent animationType="slide" onRequestClose={() => setShowNoteModal(false)}>
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border }]}>
+          <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border, paddingBottom: Math.max(insets.bottom, 16) + 4 }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: C.textPrimary }]}>Add Note</Text>
               <TouchableOpacity onPress={() => setShowNoteModal(false)}>
@@ -1338,9 +1339,9 @@ export const AddExpenseScreen = () => {
       </Modal>
 
       {/* ── Account Picker Modal ── */}
-      <Modal visible={!!showAccountPicker} transparent animationType="slide">
+      <Modal visible={!!showAccountPicker} transparent animationType="slide" onRequestClose={() => setShowAccountPicker(null)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border }]}>
+          <View style={[styles.modalContent, { maxHeight: Math.min(windowHeight * 0.78, 620), backgroundColor: C.surface, borderColor: C.border, paddingBottom: Math.max(insets.bottom, 16) + 6 }]}>
             <View style={styles.modalHeader}>
               <View>
                 <Text style={[styles.modalTitle, { color: C.textPrimary }]}>Select Account</Text>
@@ -1350,7 +1351,7 @@ export const AddExpenseScreen = () => {
                 <X size={24} color={C.textPrimary} />
               </TouchableOpacity>
             </View>
-            <ScrollView>
+            <ScrollView showsVerticalScrollIndicator={false}>
               {accounts.map((acc, i) => {
                 const isSelected = (showAccountPicker === 'from' || showAccountPicker === 'mode') ? (paymentMode === acc.name) : (toPaymentMode === acc.name);
                 return (
@@ -1400,15 +1401,39 @@ export const AddExpenseScreen = () => {
                   </TouchableOpacity>
                 );
               })}
+
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  paddingVertical: 12,
+                  marginTop: 10,
+                  marginBottom: 6,
+                  borderRadius: 12,
+                  backgroundColor: C.surfaceElevated,
+                  borderWidth: 1,
+                  borderColor: C.border,
+                }}
+                onPress={() => {
+                  setShowAccountPicker(null);
+                  navigation.navigate('Accounts');
+                }}
+                activeOpacity={0.7}
+              >
+                <Plus size={16} color={C.primary} />
+                <Text style={{ color: C.primary, fontSize: 13, fontWeight: '700' }}>Manage / Add Accounts</Text>
+              </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
       </Modal>
 
       {/* ── Date & Time Picker Modal ── */}
-      <Modal visible={showDateTimeDropdown} transparent animationType="slide">
+      <Modal visible={showDateTimeDropdown} transparent animationType="slide" onRequestClose={() => setShowDateTimeDropdown(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '75%', backgroundColor: C.surface, borderColor: C.border }]}>
+          <View style={[styles.modalContent, { maxHeight: '75%', backgroundColor: C.surface, borderColor: C.border, paddingBottom: Math.max(insets.bottom, 16) + 4 }]}>
             <View style={styles.modalHeader}>
               <View>
                 <Text style={[styles.modalTitle, { color: C.textPrimary }]}>Date & Time</Text>
@@ -1510,9 +1535,9 @@ export const AddExpenseScreen = () => {
       </Modal>
 
       {/* ── Receipt Options Modal ── */}
-      <Modal visible={showReceiptPickerModal} transparent animationType="slide">
+      <Modal visible={showReceiptPickerModal} transparent animationType="slide" onRequestClose={() => setShowReceiptPickerModal(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border }]}>
+          <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border, paddingBottom: Math.max(insets.bottom, 16) + 4 }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: C.textPrimary }]}>Attach Receipt</Text>
               <TouchableOpacity onPress={() => setShowReceiptPickerModal(false)}>
@@ -1589,9 +1614,9 @@ export const AddExpenseScreen = () => {
       </Modal>
 
       {/* ── Fullscreen Receipt Viewer Modal ── */}
-      <Modal visible={showFullReceiptModal} transparent animationType="fade">
+      <Modal visible={showFullReceiptModal} transparent animationType="fade" onRequestClose={() => setShowFullReceiptModal(false)}>
         <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
-          <View style={{ width: '100%', maxWidth: 450, maxHeight: '90%', borderRadius: 20, overflow: 'hidden', backgroundColor: C.surface, borderWidth: 1, borderColor: C.border }}>
+          <View style={{ width: '100%', maxWidth: 450, maxHeight: '90%', borderRadius: 20, overflow: 'hidden', backgroundColor: C.surface, borderColor: C.border, paddingBottom: Math.max(insets.bottom, 16) }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: C.border }}>
               <Text style={{ color: C.textPrimary, fontSize: 17, fontWeight: '700' }}>Receipt Preview</Text>
               <TouchableOpacity onPress={() => setShowFullReceiptModal(false)}>

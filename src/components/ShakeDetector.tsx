@@ -12,6 +12,7 @@ import {
   Animated,
   BackHandler,
   Vibration,
+  AppState,
 } from 'react-native';
 import * as QuickActions from 'expo-quick-actions';
 import * as Linking from 'expo-linking';
@@ -54,7 +55,19 @@ export const ShakeDetector: React.FC<ShakeDetectorProps> = ({ children }) => {
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+
+    // Whenever app goes into background or inactive, always clean up quick launch modal
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        setVisible(false);
+        setIsQuickLaunch(false);
+      }
+    });
+
+    return () => {
+      mountedRef.current = false;
+      appStateSub.remove();
+    };
   }, []);
 
   useEffect(() => {
@@ -79,6 +92,14 @@ export const ShakeDetector: React.FC<ShakeDetectorProps> = ({ children }) => {
         setVisible(true);
       }
     }
+
+    // Subscribe to incoming Quick Actions when app is already running / in background
+    const quickActionSub = QuickActions.addListener((action) => {
+      if (action?.id === 'quick-add' && mountedRef.current) {
+        setIsQuickLaunch(true);
+        setVisible(true);
+      }
+    });
 
     // Handle deep link (e.g. paisapop://quick-add or paisapop://quick-add?amount=100&category=Food)
     const handleUrl = (url: string | null) => {
@@ -106,6 +127,7 @@ export const ShakeDetector: React.FC<ShakeDetectorProps> = ({ children }) => {
               paymentMethod: 'Cash',
               notes: qNotes || undefined,
             }).then(() => {
+              handleClose();
               if (Platform.OS === 'android') {
                 setTimeout(() => { try { BackHandler.exitApp(); } catch { } }, 300);
               }
@@ -129,17 +151,21 @@ export const ShakeDetector: React.FC<ShakeDetectorProps> = ({ children }) => {
       Linking.getInitialURL().then(handleUrl).catch(() => { });
     }
 
-    return () => {};
-  }, []);
+    // Subscribe to incoming deep links when app is already open
+    const linkSub = Linking.addEventListener('url', ({ url }) => {
+      handleUrl(url);
+    });
+
+    return () => {
+      quickActionSub?.remove?.();
+      linkSub?.remove?.();
+    };
+  }, [handleClose]);
 
   return (
     <View style={{ flex: 1, backgroundColor: 'transparent' }}>
-      {/* If launched directly via shortcut, do not render main app dashboard in background */}
-      {isQuickLaunch ? (
-        <View style={{ flex: 1, backgroundColor: 'transparent' }} />
-      ) : (
-        children
-      )}
+      {/* When quick launch is active, do not render app dashboard so phone home screen shows through */}
+      {isQuickLaunch ? null : children}
       <QuickAddModal visible={visible} isQuickLaunch={isQuickLaunch} onClose={handleClose} />
     </View>
   );
@@ -176,13 +202,14 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, isQuickLaunch, o
   const noteInputRef = useRef<TextInput>(null);
 
   const handleDismiss = useCallback(() => {
-    if (isQuickLaunch && Platform.OS === 'android') {
-      try {
-        BackHandler.exitApp();
-      } catch { }
-      return;
-    }
     onClose();
+    if (isQuickLaunch && Platform.OS === 'android') {
+      setTimeout(() => {
+        try {
+          BackHandler.exitApp();
+        } catch { }
+      }, 120);
+    }
   }, [isQuickLaunch, onClose]);
 
   // ── Countdown progress animation ───────────────────────────────────────────
@@ -289,8 +316,8 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, isQuickLaunch, o
   const theme = useStore(s => s.theme);
   const isLight = theme === 'light';
   const C = isLight
-    ? { bg: '#FFFFFF', text: '#000000', sub: '#666666', inputBg: 'rgba(0,0,0,0.05)', border: '#E4E4E7', cancelBg: 'rgba(0,0,0,0.08)' }
-    : { bg: '#18181B', text: '#FFFFFF', sub: '#A1A1AA', inputBg: 'rgba(255,255,255,0.08)', border: '#27272A', cancelBg: 'rgba(255,255,255,0.1)' };
+    ? { bg: '#FFFFFF', text: '#111827', sub: '#6B7280', inputBg: '#F3F4F6', border: '#E5E7EB', cancelBg: '#E5E7EB', cancelText: '#111827' }
+    : { bg: '#1C1C1E', text: '#FFFFFF', sub: '#9CA3AF', inputBg: '#2C2C2E', border: '#3A3A3C', cancelBg: '#2C2C2E', cancelText: '#FFFFFF' };
 
   return (
     <Modal
@@ -305,15 +332,12 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, isQuickLaunch, o
         style={[
           styles.overlayFill,
           {
-            backgroundColor: isQuickLaunch
-              ? 'rgba(0,0,0,0.15)'
-              : (isLight ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.35)'),
+            backgroundColor: 'rgba(0,0,0,0.32)',
           }
         ]}
       >
-        {Platform.OS === 'ios' && (
-          <BlurView intensity={25} tint={isLight ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
-        )}
+        <BlurView intensity={Platform.OS === 'ios' ? 30 : 20} tint={isLight ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
+
         {/* Tap outside to dismiss */}
         <TouchableOpacity
           style={StyleSheet.absoluteFill}
@@ -327,7 +351,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, isQuickLaunch, o
           keyboardVerticalOffset={0}
           pointerEvents="box-none"
         >
-          <View style={[styles.popup, { marginTop: insets.top + 16, backgroundColor: C.bg, borderWidth: 1, borderColor: C.border }]}>
+          <View style={[styles.popup, { marginTop: insets.top + 24, backgroundColor: C.bg, borderWidth: 1, borderColor: C.border }]}>
 
             {/* ── Countdown progress bar (Only on Step 1) ── */}
             {step === 1 && (
@@ -350,13 +374,12 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, isQuickLaunch, o
             {step === 1 && (
               <>
                 <View style={styles.headerRow}>
-                  <Text style={[styles.shakeLabel, { color: C.sub }]}>📳 Quick Add • 1/3</Text>
+                  <Text style={[styles.shakeLabel, { color: C.sub }]}>Quick add - 1/3</Text>
                   <TouchableOpacity
                     style={styles.profileBtn}
                     onPress={handleGoToProfile}
                     activeOpacity={0.7}
                   >
-                    <User size={14} color="#007AFF" strokeWidth={2.5} />
                     <Text style={styles.profileBtnText}>
                       {userName ? userName.split(' ')[0] : 'Profile'}
                     </Text>
@@ -366,7 +389,7 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, isQuickLaunch, o
                 <Text style={[styles.title, { color: C.text }]}>How much did you spend?</Text>
 
                 <View style={[styles.inputWrap, { backgroundColor: C.inputBg }]}>
-                  <Text style={[styles.currencyPrefix, { color: C.text }]}>{sym}</Text>
+                  <Text style={[styles.currencyPrefix, { color: C.text }]}>Rs </Text>
                   <TextInput
                     ref={amountInputRef}
                     style={[styles.amountInput, { color: C.text }]}
@@ -389,18 +412,18 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, isQuickLaunch, o
                     style={[styles.actionBtn, { backgroundColor: C.cancelBg }]}
                     onPress={handleDismiss}
                   >
-                    <Text style={[styles.btnText, { color: C.text }]}>Cancel</Text>
+                    <Text style={[styles.btnText, { color: C.cancelText }]}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[
                       styles.actionBtn,
                       styles.doneBtn,
-                      { opacity: parseFloat(amount) > 0 ? 1 : 0.5 },
+                      { opacity: parseFloat(amount) > 0 ? 1 : 0.6 },
                     ]}
                     onPress={handleNextToNotes}
                     disabled={isNaN(parseFloat(amount)) || parseFloat(amount) <= 0}
                   >
-                    <Text style={[styles.btnText, { color: '#FFF' }]}>Next →</Text>
+                    <Text style={[styles.btnText, { color: '#FFF' }]}>Next</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -545,15 +568,15 @@ const styles = StyleSheet.create({
   },
   popup: {
     width: '94%',
-    maxWidth: 400,
-    borderRadius: 28,
-    padding: 22,
-    paddingTop: 16,
+    maxWidth: 390,
+    borderRadius: 24,
+    padding: 20,
+    paddingTop: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    elevation: 12,
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
     overflow: 'hidden',
   },
 
@@ -561,7 +584,7 @@ const styles = StyleSheet.create({
   progressTrack: {
     height: 3,
     borderRadius: 2,
-    marginBottom: 14,
+    marginBottom: 12,
     overflow: 'hidden',
   },
   progressFill: {
@@ -575,27 +598,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   shakeLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.4,
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
   profileBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#007AFF18',
-    paddingHorizontal: 10,
+    backgroundColor: '#EBF4FF',
+    paddingHorizontal: 14,
     paddingVertical: 5,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#007AFF30',
+    borderColor: '#BFDBFE',
   },
   profileBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
     color: '#007AFF',
   },
   backBtnWrap: {
@@ -621,35 +643,35 @@ const styles = StyleSheet.create({
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: 14,
     paddingHorizontal: 16,
-    minHeight: 56,
+    minHeight: 52,
   },
   currencyPrefix: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
-    marginRight: 6,
+    marginRight: 4,
   },
   amountInput: {
     flex: 1,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
     paddingVertical: 12,
   },
   noteInput: {
     flex: 1,
     fontSize: 15,
-    paddingVertical: 14,
+    paddingVertical: 13,
   },
   btnRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
     marginTop: 18,
   },
   actionBtn: {
     flex: 1,
-    paddingVertical: 13,
-    borderRadius: 14,
+    paddingVertical: 14,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },

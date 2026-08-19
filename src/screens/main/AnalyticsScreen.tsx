@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, Platform,
   StatusBar as RNStatusBar, ScrollView, TouchableOpacity, Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useStore } from '../../store/useStore';
 import { useThemeColors } from '../../theme/colors';
@@ -134,6 +134,8 @@ const MetricCard = ({ icon, title, value, subtitle, badgeText, badgeColor, color
 export const AnalyticsScreen = () => {
   const C = useThemeColors();
   const theme = useStore(s => s.theme);
+  const insets = useSafeAreaInsets();
+  const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 6 : 0);
   const transactions = useStore(s => s.transactions);
   const currency = useStore(s => s.currency);
   const categoryMeta = useStore(s => s.categoryMeta);
@@ -241,7 +243,7 @@ export const AnalyticsScreen = () => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 60 + bottomPad + 30 }]} showsVerticalScrollIndicator={false}>
 
         <View style={[styles.card, { backgroundColor: C.surface, borderColor: C.border }]}>
           <View style={styles.cardHeader}>

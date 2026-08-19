@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Platform, Modal, TextInput, Alert
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Platform, Modal, TextInput, Alert, useWindowDimensions, KeyboardAvoidingView
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Wallet, ArrowUpRight, Plus, CreditCard, Banknote, Smartphone, Landmark, Search, X, Trash2, Check, Sparkles } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useStore, Account } from '../../store/useStore';
@@ -52,6 +52,9 @@ export const AccountsScreen = () => {
   const navigation = useNavigation();
   const C = useThemeColors();
   const theme = useStore(s => s.theme);
+  const insets = useSafeAreaInsets();
+  const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 6 : 0);
+  const { height: windowHeight } = useWindowDimensions();
   const { accounts, transactions, currency, setAccounts, deleteAccount } = useStore();
   const sym = getCurrencySymbol(currency);
 
@@ -140,7 +143,7 @@ export const AccountsScreen = () => {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 60 + bottomPad + 30 }]} showsVerticalScrollIndicator={false}>
 
         <View style={[styles.totalCard, { backgroundColor: C.surface, borderColor: C.border }]}>
           <View>
@@ -225,9 +228,23 @@ export const AccountsScreen = () => {
       </ScrollView>
 
       {/* Add Account Modal */}
-      <Modal visible={showAddModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border }]}>
+      <Modal visible={showAddModal} transparent animationType="slide" onRequestClose={() => setShowAddModal(false)}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: C.surface,
+                borderColor: C.border,
+                height: Math.min(windowHeight * 0.86, 680),
+                maxHeight: '92%',
+                paddingBottom: Math.max(insets.bottom, 16) + 4,
+              }
+            ]}
+          >
             
             {/* Header */}
             <View style={styles.modalHeader}>
@@ -265,7 +282,7 @@ export const AccountsScreen = () => {
             </View>
 
             {modalTab === 'popular' ? (
-              <>
+              <View style={{ flex: 1 }}>
                 <View style={[styles.searchWrap, { backgroundColor: C.surfaceElevated, borderColor: C.border }]}>
                   <Search size={18} color={C.textSecondary} style={{ marginLeft: 12 }} />
                   <TextInput
@@ -287,7 +304,7 @@ export const AccountsScreen = () => {
                   )}
                 </View>
 
-                <ScrollView style={styles.bankList} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <ScrollView style={styles.bankList} contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                   {PREDEFINED_ACCOUNTS.filter(a => 
                     a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (a.details && a.details.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -345,10 +362,10 @@ export const AccountsScreen = () => {
                     </View>
                   )}
                 </ScrollView>
-              </>
+              </View>
             ) : (
               /* Custom Account Creator with Icon & Color Picker */
-              <ScrollView style={styles.customFormScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <ScrollView style={styles.customFormScroll} contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 
                 {/* Live Preview Card */}
                 <View style={[styles.previewCard, { backgroundColor: C.surfaceElevated, borderColor: C.border }]}>
@@ -397,19 +414,19 @@ export const AccountsScreen = () => {
 
                 {/* Save Account Button */}
                 <TouchableOpacity
-                  style={[styles.saveBtn, { backgroundColor: '#FFFFFF' }]}
+                  style={[styles.saveBtn, { backgroundColor: theme === 'light' ? '#18181B' : '#FFFFFF' }]}
                   onPress={handleCreateCustom}
                   activeOpacity={0.8}
                 >
-                  <Plus size={18} color="#000000" strokeWidth={2.5} />
-                  <Text style={[styles.saveBtnText, { color: '#000000' }]}>Create Account</Text>
+                  <Plus size={18} color={theme === 'light' ? '#FFFFFF' : '#000000'} strokeWidth={2.5} />
+                  <Text style={[styles.saveBtnText, { color: theme === 'light' ? '#FFFFFF' : '#000000' }]}>Create Account</Text>
                 </TouchableOpacity>
 
               </ScrollView>
             )}
 
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -443,7 +460,7 @@ const styles = StyleSheet.create({
   addBtnSub: { fontSize: 12 },
   manageText: { color: '#22C55E', fontSize: 13, fontWeight: '500' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  modalContent: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, height: 530, maxHeight: '88%', borderWidth: 1 },
+  modalContent: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, borderWidth: 1 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   modalTitle: { fontSize: 18, fontWeight: '700' },
   modalClose: { padding: 6, borderRadius: 12 },
@@ -460,7 +477,7 @@ const styles = StyleSheet.create({
   emptySub: { fontSize: 13, textAlign: 'center', marginBottom: 16, lineHeight: 18 },
   customAddBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 14, borderWidth: 1 },
   customAddText: { color: '#22C55E', fontSize: 14, fontWeight: '700' },
-  customFormScroll: { flex: 1, paddingBottom: 20 },
+  customFormScroll: { flex: 1 },
   previewCard: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 16 },
   previewIcon: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   previewName: { fontSize: 16, fontWeight: '700', marginBottom: 3 },
@@ -475,5 +492,5 @@ const styles = StyleSheet.create({
   colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   colorCircle: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
   saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 16, marginTop: 6, marginBottom: 10 },
-  saveBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  saveBtnText: { fontSize: 15, fontWeight: '700' },
 });
