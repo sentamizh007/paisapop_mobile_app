@@ -41,17 +41,10 @@ const formatDisplayDate = (ds: string): string => {
   return dateStr;
 };
 
-const getGreeting = () => {
-  const hour = new Date().getHours();
-  if (hour < 12) return { text: 'Good Morning', icon: '🌅' };
-  if (hour < 17) return { text: 'Good Afternoon', icon: '☀️' };
-  return { text: 'Good Evening', icon: '🌙' };
-};
-
 export const HistoryScreen = () => {
   const C = useThemeColors();
   const theme = useStore(s => s.theme);
-  const { transactions, removeTransaction, categoryMeta, isLoading, userName } = useStore();
+  const { transactions, removeTransaction, categoryMeta, isLoading } = useStore();
 
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 6 : 0);
@@ -119,16 +112,6 @@ export const HistoryScreen = () => {
 
   const renderHeader = () => (
     <View style={{ paddingBottom: 8 }}>
-      {/* User Greeting */}
-      <View style={styles.greetingWrap}>
-        <Text style={{ color: C.textSecondary, fontSize: 13, marginBottom: 2, fontWeight: '500' }}>
-          {getGreeting().text} {getGreeting().icon}
-        </Text>
-        <Text style={{ color: C.textPrimary, fontSize: 21, fontWeight: '800' }}>
-          {userName || 'User'} 👋
-        </Text>
-      </View>
-
       {/* Analytics-Style Month Selector */}
       <View style={styles.dateSelectorWrap}>
         <TouchableOpacity
@@ -353,8 +336,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10 },
   headerTitle: { fontSize: 18, fontWeight: '700' },
-
-  greetingWrap: { marginBottom: 14, paddingTop: 4 },
 
   dateSelectorWrap: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 14, marginBottom: 12 },
   dateBtn: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },

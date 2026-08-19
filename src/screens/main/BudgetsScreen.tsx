@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, Platform,
   StatusBar as RNStatusBar, ScrollView, TouchableOpacity,
-  Modal, TextInput, Alert, KeyboardAvoidingView,
+  Modal, TextInput, Alert, KeyboardAvoidingView, Vibration,
+  LayoutAnimation, UIManager, Pressable
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, G } from 'react-native-svg';
@@ -79,12 +80,14 @@ export const BudgetsScreen = () => {
   const currency = useStore(s => s.currency);
   const categoryMeta = useStore(s => s.categoryMeta);
   const categories = useStore(s => s.categories);
+  const reorderCategoryToFirst = useStore(s => s.reorderCategoryToFirst);
   const monthlyBudget = useStore(s => s.monthlyBudget);
   const categoryBudgets = useStore(s => s.categoryBudgets);
   const setCategoryBudget = useStore(s => s.setCategoryBudget);
   const removeCategoryBudget = useStore(s => s.removeCategoryBudget);
   const setMonthlyBudget = useStore(s => s.setMonthlyBudget);
   const sym = getCurrencySymbol(currency);
+  const budgetCatScrollRef = useRef<ScrollView>(null);
 
   const [activeMonth, setActiveMonth] = useState(new Date());
   const monthLabel = `${MONTH_SHORT[activeMonth.getMonth()]} ${activeMonth.getFullYear()}`;
@@ -360,7 +363,7 @@ export const BudgetsScreen = () => {
             </View>
 
             <Text style={[styles.modalLabel, { color: C.textSecondary }]}>Select Category</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 46, marginBottom: 18 }}>
+            <ScrollView ref={budgetCatScrollRef} horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" nestedScrollEnabled={true} style={{ maxHeight: 46, marginBottom: 18 }}>
               <TouchableOpacity 
                 style={[styles.catPill, { backgroundColor: C.surfaceElevated }, newBudgetCat === 'GLOBAL_MONTHLY' && styles.catPillActive]} 
                 onPress={() => {
@@ -379,15 +382,37 @@ export const BudgetsScreen = () => {
                 const col = meta?.color ?? getCategoryColor(c as any);
                 const isSelected = newBudgetCat === c;
                 return (
-                  <TouchableOpacity 
+                  <Pressable 
                     key={c} 
-                    style={[styles.catPill, { backgroundColor: C.surfaceElevated }, isSelected && styles.catPillActive]} 
+                    style={({ pressed }) => [
+                      styles.catPill,
+                      { backgroundColor: C.surfaceElevated },
+                      isSelected && styles.catPillActive,
+                      pressed && { opacity: 0.6 }
+                    ]} 
                     onPress={() => {
                       setNewBudgetCat(c);
                       const existing = categoryBudgets[c]?.amount;
                       setNewBudgetAmt(existing ? String(existing) : '');
                     }}
-                    activeOpacity={0.7}
+                    onLongPress={() => {
+                      try {
+                        if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+                          UIManager.setLayoutAnimationEnabledExperimental(true);
+                        }
+                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                      } catch (_) {}
+                      try { Vibration.vibrate(50); } catch (_) {}
+                      reorderCategoryToFirst(c);
+                      setNewBudgetCat(c);
+                      const existing = categoryBudgets[c]?.amount;
+                      setNewBudgetAmt(existing ? String(existing) : '');
+                      setTimeout(() => {
+                        budgetCatScrollRef.current?.scrollTo({ x: 0, animated: true });
+                      }, 40);
+                    }}
+                    delayLongPress={200}
+                    hitSlop={6}
                   >
                     {meta?.emoji ? (
                       <Text style={{ fontSize: 13, marginRight: 5 }}>{meta.emoji}</Text>
@@ -397,7 +422,7 @@ export const BudgetsScreen = () => {
                       </View>
                     )}
                     <Text style={[styles.catPillText, { color: C.textSecondary }, isSelected && styles.catPillTextActive]}>{c}</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             </ScrollView>

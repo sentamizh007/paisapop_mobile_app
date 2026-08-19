@@ -92,6 +92,11 @@ interface StoreState extends Settings {
 
   // Accounts
   setAccounts: (accounts: Account[]) => void;
+  deleteAccount: (idOrName: string) => void;
+
+  // Categories
+  setCategories: (categories: string[]) => void;
+  reorderCategoryToFirst: (category: string) => void;
 
   // Notifications
   addAppNotification: (notif: { title: string; body: string; type?: 'budget' | 'system' | 'reminder' | 'tip' }) => void;
@@ -245,6 +250,25 @@ export const useStore = create<StoreState>((set, get) => ({
   setAccounts: (accounts: Account[]) => {
     set({ accounts });
     persistSettings({ accounts });
+  },
+  deleteAccount: (idOrName: string) => {
+    const accounts = get().accounts.filter(a => a.id !== idOrName && a.name !== idOrName);
+    set({ accounts });
+    persistSettings({ accounts });
+  },
+  setCategories: (categories: string[]) => {
+    set({ categories });
+    persistSettings({ categories });
+  },
+  reorderCategoryToFirst: (category: string) => {
+    const trimmed = (category || '').trim();
+    if (!trimmed) return;
+    const current = get().categories || [];
+    const target = current.find(c => c.trim().toLowerCase() === trimmed.toLowerCase()) || trimmed;
+    const filtered = current.filter(c => c.trim().toLowerCase() !== trimmed.toLowerCase());
+    const updated = [target, ...filtered];
+    set({ categories: [...updated] });
+    persistSettings({ categories: [...updated] });
   },
 
   // ── Settings Persistence ─────────────────────────────────────────────────

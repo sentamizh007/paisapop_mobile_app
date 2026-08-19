@@ -11,11 +11,20 @@ import { ShakeDetector } from './src/components/ShakeDetector';
 import { AppSplashScreen } from './src/components/AppSplashScreen';
 import * as SplashScreen from 'expo-splash-screen';
 
+import * as QuickActions from 'expo-quick-actions';
+
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function AppInner() {
   const [ready, setReady] = useState(false);
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(() => {
+    try {
+      if (Platform.OS !== 'web' && QuickActions.initial?.id === 'quick-add') {
+        return false;
+      }
+    } catch {}
+    return true;
+  });
   const [error, setError] = useState<string | null>(null);
   const loadTransactions = useStore((s) => s.loadTransactions);
   const loadSettings = useStore((s) => s.loadSettings);

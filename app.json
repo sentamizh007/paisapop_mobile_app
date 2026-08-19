@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "PaisaPop",
-    "slug": "kerplunk",
+    "slug": "paisapop",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,7 +14,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.paisapop.expensetracker",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "PaisaPop needs camera access to capture receipt photos for your expense tracking.",
+        "NSPhotoLibraryUsageDescription": "PaisaPop needs photo library access to attach receipt images to your transactions."
       }
     },
     "android": {
@@ -36,9 +38,8 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "d2ad6f37-94a6-4b0e-8203-df701b1a9564"
+        "projectId": "b24537b1-2011-4885-8348-76a7e7901bf5"
       }
-    },
-    "owner": "kerplunkmedias-team"
+    }
   }
 }

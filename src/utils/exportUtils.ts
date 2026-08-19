@@ -88,7 +88,6 @@ export const exportAndShare = async (
       return { success: true };
     }
 
-    // Use the stable FileSystem API (available in expo-file-system v57)
     const docDir = FileSystem.documentDirectory;
     if (!docDir) {
       return { success: false, error: 'Document directory is not accessible on this device.' };

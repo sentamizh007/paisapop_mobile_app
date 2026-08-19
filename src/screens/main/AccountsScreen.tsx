@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { 
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Platform, Modal, TextInput
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Platform, Modal, TextInput, Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, Wallet, ArrowUpRight, Plus, CreditCard, Banknote, Smartphone, Landmark, Search, X } from 'lucide-react-native';
+import { ChevronLeft, Wallet, ArrowUpRight, Plus, CreditCard, Banknote, Smartphone, Landmark, Search, X, Trash2, Check, Sparkles } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useStore, Account } from '../../store/useStore';
 import { useThemeColors } from '../../theme/colors';
@@ -16,12 +16,26 @@ const formatMoney = (amount: number) => {
   });
 };
 
+const ACCOUNT_COLORS = [
+  '#007AFF', // Blue
+  '#22C55E', // Emerald Green
+  '#A855F7', // Purple
+  '#F97316', // Orange
+  '#EC4899', // Pink
+  '#EF4444', // Red
+  '#14B8A6', // Teal
+  '#6366F1', // Indigo
+  '#EAB308', // Amber
+  '#06B6D4', // Cyan
+];
+
 const PREDEFINED_ACCOUNTS: { name: string; type: Account['type']; color: string; details?: string }[] = [
   { name: 'State Bank of India (SBI)', type: 'bank', color: '#005b9f' },
   { name: 'HDFC Bank', type: 'bank', color: '#004c8f' },
   { name: 'ICICI Bank', type: 'bank', color: '#f58220' },
   { name: 'Axis Bank', type: 'bank', color: '#97144d' },
   { name: 'Kotak Mahindra Bank', type: 'bank', color: '#ed1c24' },
+  { name: 'IndusInd Banking', type: 'bank', color: '#012345', details: 'IndusInd Bank' },
   { name: 'Punjab National Bank (PNB)', type: 'bank', color: '#a32020' },
   { name: 'Bank of Baroda', type: 'bank', color: '#f05a22' },
   { name: 'Canara Bank', type: 'bank', color: '#0e7cc1' },
@@ -38,11 +52,14 @@ export const AccountsScreen = () => {
   const navigation = useNavigation();
   const C = useThemeColors();
   const theme = useStore(s => s.theme);
-  const { accounts, transactions, currency, setAccounts } = useStore();
+  const { accounts, transactions, currency, setAccounts, deleteAccount } = useStore();
   const sym = getCurrencySymbol(currency);
-  
+
   const [showAddModal, setShowAddModal] = useState(false);
+  const [modalTab, setModalTab] = useState<'popular' | 'custom'>('popular');
   const [searchQuery, setSearchQuery] = useState('');
+  const [customName, setCustomName] = useState('');
+  const [customColor, setCustomColor] = useState('#007AFF');
 
   const getAccountBalance = (accountName: string) => {
     const acc = accounts.find(a => a.name === accountName);
@@ -61,6 +78,34 @@ export const AccountsScreen = () => {
       }
     });
     return balance;
+  };
+
+  const handleCreateCustom = () => {
+    if (!customName.trim()) {
+      Alert.alert('Account Name Required', 'Please enter a name for the account.');
+      return;
+    }
+    const name = customName.trim();
+    const exists = accounts.some(a => a.name.toLowerCase() === name.toLowerCase());
+    if (exists) {
+      Alert.alert('Account Exists', `An account named "${name}" already exists.`);
+      return;
+    }
+    setAccounts([
+      ...accounts,
+      {
+        id: `acc_${Date.now()}`,
+        name,
+        type: 'bank',
+        initialBalance: 0,
+        color: customColor,
+        details: 'Bank Account',
+      },
+    ]);
+    setShowAddModal(false);
+    setCustomName('');
+    setSearchQuery('');
+    setModalTab('popular');
   };
 
   const accountBalances = useMemo(() => {
@@ -96,7 +141,7 @@ export const AccountsScreen = () => {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        
+
         <View style={[styles.totalCard, { backgroundColor: C.surface, borderColor: C.border }]}>
           <View>
             <Text style={[styles.totalLabel, { color: C.textSecondary }]}>Total Net Balance</Text>
@@ -111,9 +156,38 @@ export const AccountsScreen = () => {
           </View>
         </View>
 
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4 }}>
+          <Text style={{ fontSize: 13, fontWeight: '600', color: C.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 }}>Your Accounts</Text>
+          <Text style={{ fontSize: 11, color: C.textMuted }}>Long press to delete</Text>
+        </View>
+
         <View style={[styles.listContainer, { backgroundColor: C.surface, borderColor: C.border }]}>
           {accountBalances.map((acc, idx) => (
-            <View key={acc.id} style={[styles.accountRow, idx > 0 && { borderTopWidth: 1, borderTopColor: C.border }]}>
+            <TouchableOpacity
+              key={acc.id}
+              activeOpacity={0.7}
+              onLongPress={() => {
+                const confirmDelete = () => {
+                  deleteAccount(acc.id);
+                };
+                if (Platform.OS === 'web') {
+                  if (window.confirm(`Delete "${acc.name}" account?`)) {
+                    confirmDelete();
+                  }
+                } else {
+                  Alert.alert(
+                    'Delete Account',
+                    `Are you sure you want to delete "${acc.name}"?`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Delete', style: 'destructive', onPress: confirmDelete }
+                    ]
+                  );
+                }
+              }}
+              delayLongPress={350}
+              style={[styles.accountRow, idx > 0 && { borderTopWidth: 1, borderTopColor: C.border }]}
+            >
               <View style={styles.accLeft}>
                 <View style={[styles.accIcon, { backgroundColor: acc.color + '20' }]}>
                   {getAccountIcon(acc.type, acc.color)}
@@ -127,12 +201,12 @@ export const AccountsScreen = () => {
                 <Text style={[styles.accBalance, { color: C.textPrimary }]}>{sym}{formatMoney(acc.currentBalance)}</Text>
                 {acc.type === 'credit' && <Text style={[styles.accLimit, { color: C.textMuted }]}>Outstanding</Text>}
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
 
-        <TouchableOpacity 
-          style={[styles.addBtn, { backgroundColor: C.surface, borderColor: C.border }]} 
+        <TouchableOpacity
+          style={[styles.addBtn, { backgroundColor: C.surface, borderColor: C.border }]}
           onPress={() => setShowAddModal(true)}
           activeOpacity={0.7}
         >
@@ -150,56 +224,190 @@ export const AccountsScreen = () => {
 
       </ScrollView>
 
+      {/* Add Account Modal */}
       <Modal visible={showAddModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border }]}>
+            
+            {/* Header */}
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: C.textPrimary }]}>Add Account / Bank</Text>
+              <Text style={[styles.modalTitle, { color: C.textPrimary }]}>
+                {modalTab === 'popular' ? 'Add Account / Bank' : 'Create Custom Account'}
+              </Text>
               <TouchableOpacity onPress={() => setShowAddModal(false)} style={[styles.modalClose, { backgroundColor: C.surfaceElevated }]}>
                 <X size={20} color={C.textPrimary} />
               </TouchableOpacity>
             </View>
 
-            <View style={[styles.searchWrap, { backgroundColor: C.surfaceElevated, borderColor: C.border }]}>
-              <Search size={18} color={C.textSecondary} style={{ marginLeft: 12 }} />
-              <TextInput
-                style={[styles.searchInput, { color: C.textPrimary }]}
-                placeholder="Search bank or wallet"
-                placeholderTextColor={C.textMuted}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
+            {/* Tab Switcher */}
+            <View style={[styles.tabBar, { backgroundColor: C.surfaceElevated }]}>
+              <TouchableOpacity
+                style={[styles.tabBtn, modalTab === 'popular' && { backgroundColor: C.surface, elevation: 2, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4 }]}
+                onPress={() => setModalTab('popular')}
+                activeOpacity={0.7}
+              >
+                <Landmark size={15} color={modalTab === 'popular' ? '#22C55E' : C.textSecondary} />
+                <Text style={[styles.tabBtnText, { color: modalTab === 'popular' ? C.textPrimary : C.textSecondary, fontWeight: modalTab === 'popular' ? '700' : '500' }]}>
+                  Popular Banks
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.tabBtn, modalTab === 'custom' && { backgroundColor: C.surface, elevation: 2, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4 }]}
+                onPress={() => setModalTab('custom')}
+                activeOpacity={0.7}
+              >
+                <Sparkles size={15} color={modalTab === 'custom' ? '#22C55E' : C.textSecondary} />
+                <Text style={[styles.tabBtnText, { color: modalTab === 'custom' ? C.textPrimary : C.textSecondary, fontWeight: modalTab === 'custom' ? '700' : '500' }]}>
+                  Custom Account
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.bankList}>
-              {PREDEFINED_ACCOUNTS.filter(a => a.name.toLowerCase().includes(searchQuery.toLowerCase())).map((bank, i) => (
-                <TouchableOpacity 
-                  key={i} 
-                  style={[styles.bankItem, { borderBottomColor: C.border }]}
-                  onPress={() => {
-                    const exists = accounts.some(a => a.name.toLowerCase() === bank.name.toLowerCase());
-                    if (!exists) {
-                      setAccounts([...accounts, {
-                        id: `acc_${Date.now()}`,
-                        name: bank.name,
-                        type: bank.type,
-                        initialBalance: 0,
-                        color: bank.color,
-                        details: bank.details || bank.name,
-                      }]);
-                    }
-                    setShowAddModal(false);
-                    setSearchQuery('');
-                  }}
-                >
-                  <View style={[styles.accIcon, { backgroundColor: bank.color + '20' }]}>
-                    {getAccountIcon(bank.type, bank.color)}
+            {modalTab === 'popular' ? (
+              <>
+                <View style={[styles.searchWrap, { backgroundColor: C.surfaceElevated, borderColor: C.border }]}>
+                  <Search size={18} color={C.textSecondary} style={{ marginLeft: 12 }} />
+                  <TextInput
+                    style={[styles.searchInput, { color: C.textPrimary }]}
+                    placeholder="Search bank, wallet, or UPI..."
+                    placeholderTextColor={C.textMuted}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    autoCapitalize="words"
+                  />
+                  {searchQuery.length > 0 && (
+                    <TouchableOpacity
+                      onPress={() => setSearchQuery('')}
+                      style={{ padding: 6 }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <X size={16} color={C.textSecondary} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <ScrollView style={styles.bankList} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                  {PREDEFINED_ACCOUNTS.filter(a => 
+                    a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (a.details && a.details.toLowerCase().includes(searchQuery.toLowerCase()))
+                  ).length > 0 ? (
+                    PREDEFINED_ACCOUNTS.filter(a => 
+                      a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      (a.details && a.details.toLowerCase().includes(searchQuery.toLowerCase()))
+                    ).map((bank, i) => (
+                      <TouchableOpacity
+                        key={i}
+                        style={[styles.bankItem, { borderBottomColor: C.border }]}
+                        onPress={() => {
+                          const exists = accounts.some(a => a.name.toLowerCase() === bank.name.toLowerCase());
+                          if (!exists) {
+                            setAccounts([...accounts, {
+                              id: `acc_${Date.now()}`,
+                              name: bank.name,
+                              type: bank.type,
+                              initialBalance: 0,
+                              color: bank.color,
+                              details: bank.details || bank.name,
+                            }]);
+                          }
+                          setShowAddModal(false);
+                          setSearchQuery('');
+                        }}
+                      >
+                        <View style={[styles.accIcon, { backgroundColor: bank.color + '20' }]}>
+                          {getAccountIcon(bank.type, bank.color)}
+                        </View>
+                        <Text style={[styles.bankItemText, { color: C.textPrimary }]}>{bank.name}</Text>
+                        <Plus size={16} color="#22C55E" />
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <View style={styles.emptyStateWrap}>
+                      <Text style={{ fontSize: 32, marginBottom: 8 }}>🔍</Text>
+                      <Text style={[styles.emptyTitle, { color: C.textPrimary }]}>No account found</Text>
+                      <Text style={[styles.emptySub, { color: C.textSecondary }]}>
+                        No predefined account matching "{searchQuery}".
+                      </Text>
+                      {searchQuery.trim().length > 0 && (
+                        <TouchableOpacity
+                          style={[styles.customAddBtn, { backgroundColor: '#22C55E18', borderColor: '#22C55E' }]}
+                          onPress={() => {
+                            setCustomName(searchQuery.trim());
+                            setModalTab('custom');
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Sparkles size={18} color="#22C55E" />
+                          <Text style={styles.customAddText}>Customize & Create "{searchQuery.trim()}"</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+                </ScrollView>
+              </>
+            ) : (
+              /* Custom Account Creator with Icon & Color Picker */
+              <ScrollView style={styles.customFormScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                
+                {/* Live Preview Card */}
+                <View style={[styles.previewCard, { backgroundColor: C.surfaceElevated, borderColor: C.border }]}>
+                  <View style={[styles.previewIcon, { backgroundColor: customColor + '22' }]}>
+                    <Landmark size={26} color={customColor} />
                   </View>
-                  <Text style={[styles.bankItemText, { color: C.textPrimary }]}>{bank.name}</Text>
-                  <Plus size={16} color="#22C55E" />
+                  <View style={{ flex: 1, marginLeft: 14 }}>
+                    <Text style={[styles.previewName, { color: C.textPrimary }]}>
+                      {customName.trim() || 'Account Name'}
+                    </Text>
+                    <Text style={[styles.previewType, { color: C.textSecondary }]}>
+                      Bank Account
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Account Name */}
+                <Text style={[styles.inputLabel, { color: C.textSecondary }]}>Account / Bank Name</Text>
+                <View style={[styles.inputWrap, { backgroundColor: C.surfaceElevated, borderColor: C.border }]}>
+                  <TextInput
+                    style={[styles.formInput, { color: C.textPrimary }]}
+                    placeholder="e.g. Jupiter, Salary Bank, Crypto"
+                    placeholderTextColor={C.textMuted}
+                    value={customName}
+                    onChangeText={setCustomName}
+                  />
+                </View>
+
+                {/* Select Color */}
+                <Text style={[styles.inputLabel, { color: C.textSecondary }]}>Select Theme Color</Text>
+                <View style={styles.colorRow}>
+                  {ACCOUNT_COLORS.map(c => {
+                    const isSelected = customColor === c;
+                    return (
+                      <TouchableOpacity
+                        key={c}
+                        style={[styles.colorCircle, { backgroundColor: c }]}
+                        onPress={() => setCustomColor(c)}
+                        activeOpacity={0.8}
+                      >
+                        {isSelected && <Check size={16} color="#FFFFFF" strokeWidth={3} />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Save Account Button */}
+                <TouchableOpacity
+                  style={[styles.saveBtn, { backgroundColor: '#FFFFFF' }]}
+                  onPress={handleCreateCustom}
+                  activeOpacity={0.8}
+                >
+                  <Plus size={18} color="#000000" strokeWidth={2.5} />
+                  <Text style={[styles.saveBtnText, { color: '#000000' }]}>Create Account</Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+
+              </ScrollView>
+            )}
+
           </View>
         </View>
       </Modal>
@@ -235,13 +443,37 @@ const styles = StyleSheet.create({
   addBtnSub: { fontSize: 12 },
   manageText: { color: '#22C55E', fontSize: 13, fontWeight: '500' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '80%', borderWidth: 1 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalContent: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, height: 530, maxHeight: '88%', borderWidth: 1 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   modalTitle: { fontSize: 18, fontWeight: '700' },
-  modalClose: { padding: 4, borderRadius: 12 },
-  searchWrap: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingRight: 12, marginBottom: 16, borderWidth: 1, height: 44 },
-  searchInput: { flex: 1, height: '100%', fontSize: 15, paddingHorizontal: 10 },
-  bankList: { flexGrow: 0 },
+  modalClose: { padding: 6, borderRadius: 12 },
+  tabBar: { flexDirection: 'row', borderRadius: 14, padding: 4, marginBottom: 16 },
+  tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8, borderRadius: 10 },
+  tabBtnText: { fontSize: 13 },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, paddingRight: 12, marginBottom: 14, borderWidth: 1, height: 44 },
+  searchInput: { flex: 1, height: '100%', fontSize: 14.5, paddingHorizontal: 12 },
+  bankList: { flex: 1 },
   bankItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
   bankItemText: { fontSize: 15, flex: 1, marginLeft: 12 },
+  emptyStateWrap: { alignItems: 'center', justifyContent: 'center', paddingVertical: 32, paddingHorizontal: 16 },
+  emptyTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4, textAlign: 'center' },
+  emptySub: { fontSize: 13, textAlign: 'center', marginBottom: 16, lineHeight: 18 },
+  customAddBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 14, borderWidth: 1 },
+  customAddText: { color: '#22C55E', fontSize: 14, fontWeight: '700' },
+  customFormScroll: { flex: 1, paddingBottom: 20 },
+  previewCard: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 16 },
+  previewIcon: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  previewName: { fontSize: 16, fontWeight: '700', marginBottom: 3 },
+  previewType: { fontSize: 12.5, fontWeight: '500' },
+  inputLabel: { fontSize: 12.5, fontWeight: '600', marginBottom: 6, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.4 },
+  inputWrap: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, paddingHorizontal: 12, borderWidth: 1, height: 44, marginBottom: 14 },
+  currencyPrefix: { fontSize: 15, fontWeight: '700', marginRight: 6 },
+  formInput: { flex: 1, height: '100%', fontSize: 14.5 },
+  typeRow: { flexDirection: 'row', gap: 8, marginBottom: 14, paddingVertical: 2 },
+  typeChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12, borderWidth: 1 },
+  typeChipText: { fontSize: 13 },
+  colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+  colorCircle: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
+  saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 16, marginTop: 6, marginBottom: 10 },
+  saveBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
 });

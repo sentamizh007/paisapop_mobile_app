@@ -1,15 +1,15 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform,
   StatusBar as RNStatusBar, Dimensions, Alert, TextInput, Modal, Switch, Image, useWindowDimensions,
-  KeyboardAvoidingView
+  KeyboardAvoidingView, Vibration, LayoutAnimation, UIManager, Pressable, Animated
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ChevronLeft, ReceiptText, ArrowDown, ArrowUp, ArrowRightLeft,
   FileText, User, CreditCard, Calendar, Clock, Tag, Receipt,
   Camera, Users, Delete, ChevronRight, X, Wallet, Banknote, Landmark, Smartphone, Check,
-  Bell, Trash2, CheckCheck, AlertTriangle, Sparkles, Info, Image as ImageIcon, Eye
+  Bell, Trash2, CheckCheck, AlertTriangle, Sparkles, Info, Image as ImageIcon, Eye, Search
 } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
@@ -53,10 +53,12 @@ export const AddExpenseScreen = () => {
   const categoryMeta = useStore(s => s.categoryMeta);
   const addTransaction = useStore(s => s.addTransaction);
   const addCategory = useStore(s => s.addCategory);
+  const reorderCategoryToFirst = useStore(s => s.reorderCategoryToFirst);
   const currency = useStore(s => s.currency);
   const transactions = useStore(s => s.transactions);
   const accounts = useStore(s => s.accounts);
   const setAccounts = useStore(s => s.setAccounts);
+  const deleteAccount = useStore(s => s.deleteAccount);
   const notifications = useStore(s => s.notifications || []);
   const markNotificationAsRead = useStore(s => s.markNotificationAsRead);
   const markAllNotificationsAsRead = useStore(s => s.markAllNotificationsAsRead);
@@ -71,6 +73,7 @@ export const AddExpenseScreen = () => {
   const catItemWidth = (effectiveWidth - 18) / 4;
 
   const [amountStr, setAmountStr] = useState('0');
+  const catScrollRef = useRef<ScrollView>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [txType, setTxType] = useState<TxType>('expense');
   const [paymentMode, setPaymentMode] = useState<string>('');
@@ -104,6 +107,7 @@ export const AddExpenseScreen = () => {
   const [showAccountPicker, setShowAccountPicker] = useState<'from' | 'to' | 'mode' | null>(null);
   const [showMerchantModal, setShowMerchantModal] = useState(false);
   const [merchantSearch, setMerchantSearch] = useState('');
+  const [isMerchantSearchFocused, setIsMerchantSearchFocused] = useState(false);
   const [merchantCategoryFilter, setMerchantCategoryFilter] = useState('All');
   const [receiptUri, setReceiptUri] = useState<string | null>(null);
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -128,7 +132,12 @@ export const AddExpenseScreen = () => {
     { name: 'Domino\'s Pizza', category: 'Food', icon: '🍕' },
     { name: 'KFC', category: 'Food', icon: '🍗' },
     { name: 'Subway', category: 'Food', icon: '🥪' },
+    { name: 'Burger King', category: 'Food', icon: '🍔' },
+    { name: 'Pizza Hut', category: 'Food', icon: '🍕' },
     { name: 'Chai Point', category: 'Food', icon: '🫖' },
+    { name: 'Chaayos', category: 'Food', icon: '🍵' },
+    { name: 'Haldiram\'s', category: 'Food', icon: '🍛' },
+    { name: 'Barbeque Nation', category: 'Food', icon: '🍢' },
     
     // Shopping
     { name: 'Amazon', category: 'Shopping', icon: '📦' },
@@ -138,9 +147,14 @@ export const AddExpenseScreen = () => {
     { name: 'Ajio', category: 'Shopping', icon: '👠' },
     { name: 'Nykaa', category: 'Shopping', icon: '💄' },
     { name: 'Zara', category: 'Shopping', icon: '👔' },
+    { name: 'H&M', category: 'Shopping', icon: '👕' },
     { name: 'Apple Store', category: 'Shopping', icon: '🍎' },
     { name: 'Croma', category: 'Shopping', icon: '💻' },
     { name: 'Reliance Digital', category: 'Shopping', icon: '📱' },
+    { name: 'Decathlon', category: 'Shopping', icon: '⚽' },
+    { name: 'IKEA', category: 'Shopping', icon: '🛋️' },
+    { name: 'Uniqlo', category: 'Shopping', icon: '🧥' },
+    { name: 'Tata CLiQ', category: 'Shopping', icon: '🛍️' },
 
     // Groceries
     { name: 'Blinkit', category: 'Groceries', icon: '⚡' },
@@ -149,39 +163,116 @@ export const AddExpenseScreen = () => {
     { name: 'BigBasket', category: 'Groceries', icon: '🥦' },
     { name: 'DMart', category: 'Groceries', icon: '🏬' },
     { name: 'Reliance Fresh', category: 'Groceries', icon: '🍎' },
+    { name: 'More Supermarket', category: 'Groceries', icon: '🛒' },
+    { name: 'Nature\'s Basket', category: 'Groceries', icon: '🥑' },
+    { name: 'Local Kirana', category: 'Groceries', icon: '🏪' },
+    { name: 'Milk Basket', category: 'Groceries', icon: '🥛' },
 
-    // Travel
+    // Transport
     { name: 'Uber', category: 'Transport', icon: '🚗' },
     { name: 'Ola', category: 'Transport', icon: '🚖' },
     { name: 'Rapido', category: 'Transport', icon: '🛵' },
-    { name: 'MakeMyTrip', category: 'Transport', icon: '✈️' },
-    { name: 'IRCTC', category: 'Transport', icon: '🚆' },
-    { name: 'Shell Petrol', category: 'Transport', icon: '⛽' },
     { name: 'Indian Oil', category: 'Transport', icon: '⛽' },
     { name: 'HP Petrol', category: 'Transport', icon: '⛽' },
+    { name: 'Bharat Petroleum', category: 'Transport', icon: '⛽' },
+    { name: 'Shell Petrol', category: 'Transport', icon: '⛽' },
+    { name: 'IRCTC', category: 'Transport', icon: '🚆' },
+    { name: 'Metro Card Recharge', category: 'Transport', icon: '🚇' },
+    { name: 'Fastag Toll', category: 'Transport', icon: '🛣️' },
+    { name: 'MakeMyTrip', category: 'Transport', icon: '✈️' },
+    { name: 'RedBus', category: 'Transport', icon: '🚌' },
+    { name: 'IndiGo Airlines', category: 'Transport', icon: '✈️' },
 
     // Bills
     { name: 'Electricity Bill', category: 'Bills', icon: '⚡' },
     { name: 'Airtel Recharge', category: 'Bills', icon: '📶' },
     { name: 'Jio Recharge', category: 'Bills', icon: '📱' },
-    { name: 'Gas Cylinder', category: 'Bills', icon: '🔥' },
+    { name: 'Vodafone Idea (Vi)', category: 'Bills', icon: '📶' },
+    { name: 'Gas Cylinder (HP/Indane)', category: 'Bills', icon: '🔥' },
     { name: 'Water Bill', category: 'Bills', icon: '💧' },
     { name: 'Wi-Fi Broadband', category: 'Bills', icon: '🌐' },
+    { name: 'Credit Card Bill', category: 'Bills', icon: '💳' },
+    { name: 'Tata Play DTH', category: 'Bills', icon: '📡' },
+
+    // Subscriptions
+    { name: 'Netflix', category: 'Subscriptions', icon: '🎬' },
+    { name: 'Spotify', category: 'Subscriptions', icon: '🎵' },
+    { name: 'YouTube Premium', category: 'Subscriptions', icon: '▶️' },
+    { name: 'Disney+ Hotstar', category: 'Subscriptions', icon: '📺' },
+    { name: 'Amazon Prime', category: 'Subscriptions', icon: '📦' },
+    { name: 'ChatGPT Plus', category: 'Subscriptions', icon: '🤖' },
+    { name: 'Apple Services / iCloud', category: 'Subscriptions', icon: '☁️' },
+    { name: 'Google One', category: 'Subscriptions', icon: '💾' },
+    { name: 'Sony LIV', category: 'Subscriptions', icon: '📺' },
+    { name: 'Zee5', category: 'Subscriptions', icon: '📺' },
 
     // Entertainment
-    { name: 'Netflix', category: 'Entertainment', icon: '🎬' },
-    { name: 'Spotify', category: 'Entertainment', icon: '🎵' },
-    { name: 'Disney+ Hotstar', category: 'Entertainment', icon: '📺' },
-    { name: 'Prime Video', category: 'Entertainment', icon: '🎥' },
-    { name: 'YouTube Premium', category: 'Entertainment', icon: '▶️' },
     { name: 'BookMyShow', category: 'Entertainment', icon: '🎟️' },
+    { name: 'PVR Inox Cinema', category: 'Entertainment', icon: '🍿' },
+    { name: 'Prime Video', category: 'Entertainment', icon: '🎥' },
+    { name: 'PlayStation Store', category: 'Entertainment', icon: '🎮' },
+    { name: 'Steam Games', category: 'Entertainment', icon: '🕹️' },
 
     // Health
     { name: 'Apollo Pharmacy', category: 'Health', icon: '💊' },
     { name: 'Tata 1mg', category: 'Health', icon: '🩺' },
     { name: 'Netmeds', category: 'Health', icon: '🏥' },
     { name: 'MedPlus', category: 'Health', icon: '💊' },
+    { name: 'PharmEasy', category: 'Health', icon: '📦' },
     { name: 'Cult.fit Gym', category: 'Health', icon: '🏋️' },
+    { name: 'Practo Doctor', category: 'Health', icon: '👨‍⚕️' },
+    { name: 'Dr. Lal PathLabs', category: 'Health', icon: '🔬' },
+
+    // Education
+    { name: 'Udemy', category: 'Education', icon: '🎓' },
+    { name: 'Coursera', category: 'Education', icon: '📚' },
+    { name: 'College / School Fees', category: 'Education', icon: '🏫' },
+    { name: 'Books & Stationery', category: 'Education', icon: '📖' },
+    { name: 'Unacademy', category: 'Education', icon: '💡' },
+    { name: 'PhysicsWallah', category: 'Education', icon: '📐' },
+    { name: 'Duolingo', category: 'Education', icon: '🦉' },
+
+    // Travel
+    { name: 'MakeMyTrip Hotels', category: 'Travel', icon: '🏨' },
+    { name: 'Goibibo', category: 'Travel', icon: '✈️' },
+    { name: 'Airbnb', category: 'Travel', icon: '🏡' },
+    { name: 'OYO Rooms', category: 'Travel', icon: '🏨' },
+    { name: 'Booking.com', category: 'Travel', icon: '🗺️' },
+    { name: 'Cleartrip', category: 'Travel', icon: '✈️' },
+
+    // Coffee
+    { name: 'Starbucks Coffee', category: 'Coffee', icon: '☕' },
+    { name: 'Third Wave Coffee', category: 'Coffee', icon: '☕' },
+    { name: 'Blue Tokai', category: 'Coffee', icon: '☕' },
+    { name: 'Costa Coffee', category: 'Coffee', icon: '☕' },
+    { name: 'Cafe Coffee Day', category: 'Coffee', icon: '☕' },
+
+    // Gifts
+    { name: 'Ferns N Petals (FNP)', category: 'Gifts', icon: '💐' },
+    { name: 'FlowerAura', category: 'Gifts', icon: '🌸' },
+    { name: 'Titan / Tanishq', category: 'Gifts', icon: '⌚' },
+    { name: 'Archies Gallery', category: 'Gifts', icon: '🎁' },
+    { name: 'Amazon Gift Card', category: 'Gifts', icon: '🎁' },
+
+    // Rent
+    { name: 'House Rent', category: 'Rent', icon: '🏠' },
+    { name: 'Flat Maintenance', category: 'Rent', icon: '🏢' },
+    { name: 'Office Rent', category: 'Rent', icon: '🏬' },
+    { name: 'PG Accommodation', category: 'Rent', icon: '🛏️' },
+
+    // Savings
+    { name: 'Zerodha', category: 'Savings', icon: '📈' },
+    { name: 'Groww', category: 'Savings', icon: '🌱' },
+    { name: 'Mutual Fund SIP', category: 'Savings', icon: '💰' },
+    { name: 'PPF / EPF Deposit', category: 'Savings', icon: '🏦' },
+    { name: 'Gold Savings', category: 'Savings', icon: '🪙' },
+
+    // Other
+    { name: 'ATM Cash Withdrawal', category: 'Other', icon: '🏧' },
+    { name: 'Laundry / Dry Cleaning', category: 'Other', icon: '🧺' },
+    { name: 'Salon / Barber', category: 'Other', icon: '💇' },
+    { name: 'Pet Care / Vet', category: 'Other', icon: '🐾' },
+    { name: 'Charity / Donation', category: 'Other', icon: '❤️' },
   ], []);
 
   const suggestedMerchants = useMemo(() => {
@@ -341,8 +432,9 @@ export const AddExpenseScreen = () => {
   const isSmallScreen = windowHeight < 720;
   const isTallScreen = windowHeight >= 820;
   const keyBtnHeight = isSmallScreen ? 48 : isTallScreen ? 64 : 58;
-  const keyGap = isSmallScreen ? 6 : 8;
-  const sectionSpacing = isSmallScreen ? 6 : isTallScreen ? 10 : 8;
+  const keyGap = isSmallScreen ? 8 : 10;
+  const sectionSpacing = isSmallScreen ? 8 : isTallScreen ? 12 : 10;
+  const keypadTopGap = isSmallScreen ? 14 : 18;
   const cardPaddingV = isSmallScreen ? 12 : isTallScreen ? 18 : 14;
   const amountFontSize = isSmallScreen ? 34 : isTallScreen ? 44 : 38;
 
@@ -563,28 +655,47 @@ export const AddExpenseScreen = () => {
               }}
             >
               <ScrollView
+                ref={catScrollRef}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ gap: 6, alignItems: 'center' }}
+                keyboardShouldPersistTaps="always"
+                nestedScrollEnabled={true}
               >
                 {storeCategories.map(cat => {
                   const active = selectedCategory === cat;
                   const meta = categoryMeta[cat];
                   const col = meta?.color ?? getCategoryColor(cat as any);
                   return (
-                    <TouchableOpacity
+                    <Pressable
                       key={cat}
-                      style={[
+                      style={({ pressed }) => [
                         styles.catBtn,
                         {
                           width: catItemWidth,
                           height: isSmallScreen ? 30 : 34,
                           backgroundColor: active ? (col + '22') : C.surface,
                           borderColor: active ? col : C.border,
+                          opacity: pressed ? 0.6 : 1,
                         }
                       ]}
                       onPress={() => setSelectedCategory(active ? '' : cat)}
-                      activeOpacity={0.7}
+                      onLongPress={() => {
+                        try {
+                          if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+                            UIManager.setLayoutAnimationEnabledExperimental(true);
+                          }
+                          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                        } catch (_) {}
+                        try { Vibration.vibrate(50); } catch (_) {}
+                        reorderCategoryToFirst(cat);
+                        setSelectedCategory(cat);
+                        setTimeout(() => {
+                          catScrollRef.current?.scrollTo({ x: 0, animated: true });
+                        }, 40);
+                      }}
+                      delayLongPress={200}
+                      hitSlop={6}
                     >
                       {meta?.emoji ? (
                         <Text style={{ fontSize: 11.5 }}>{meta.emoji}</Text>
@@ -598,7 +709,7 @@ export const AddExpenseScreen = () => {
                       >
                         {cat}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   );
                 })}
                 <TouchableOpacity
@@ -651,6 +762,7 @@ export const AddExpenseScreen = () => {
                   ]}
                   onPress={() => {
                     setMerchantSearch('');
+                    setIsMerchantSearchFocused(false);
                     setMerchantCategoryFilter('All');
                     setShowMerchantModal(true);
                   }}
@@ -700,7 +812,7 @@ export const AddExpenseScreen = () => {
         </View>
 
         {/* ── Bottom Section (Keypad + Save CTA Button) ── */}
-        <View style={{ flex: 1, gap: sectionSpacing, marginTop: sectionSpacing }}>
+        <View style={{ flex: 1, gap: keyGap, marginTop: keypadTopGap }}>
           {/* ── Keypad ── */}
           <View style={[styles.keypad, { flex: 1, gap: keyGap }]}>
             {KEYPAD_ROWS.map((row, rIdx) => (
@@ -736,6 +848,7 @@ export const AddExpenseScreen = () => {
             style={[
               styles.saveBtn,
               {
+                marginTop: isSmallScreen ? 10 : 14,
                 height: isSmallScreen ? 46 : 50,
                 backgroundColor: parseFloat(amountStr) > 0
                   ? (theme === 'light' ? '#18181B' : '#FFFFFF')
@@ -862,8 +975,21 @@ export const AddExpenseScreen = () => {
 
       {/* ── Merchant / Payee Picker Modal ── */}
       <Modal visible={showMerchantModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '80%', backgroundColor: C.surface, borderColor: C.border }]}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View
+            style={[
+              styles.modalContent,
+              {
+                height: 460,
+                maxHeight: '80%',
+                backgroundColor: C.surface,
+                borderColor: C.border,
+              }
+            ]}
+          >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: C.textPrimary }]}>Select Merchant / Payee</Text>
               <TouchableOpacity onPress={() => setShowMerchantModal(false)}>
@@ -872,17 +998,47 @@ export const AddExpenseScreen = () => {
             </View>
 
             {/* Search / Custom Entry Bar */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceElevated, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: C.border, marginBottom: 12 }}>
-              <TextInput
-                style={{ flex: 1, color: C.textPrimary, fontSize: 15, padding: 0 }}
-                placeholder="Search or enter merchant name..."
-                placeholderTextColor={C.textMuted}
-                value={merchantSearch}
-                onChangeText={setMerchantSearch}
-              />
-              {merchantSearch.length > 0 && (
-                <TouchableOpacity onPress={() => setMerchantSearch('')} style={{ padding: 4 }}>
-                  <X size={16} color={C.textMuted} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <View
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: C.surfaceElevated,
+                  borderRadius: 14,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  borderWidth: 1,
+                  borderColor: isMerchantSearchFocused ? (theme === 'light' ? '#000000' : '#FFFFFF') : C.border,
+                }}
+              >
+                <Search size={16} color={isMerchantSearchFocused ? (theme === 'light' ? '#000000' : '#FFFFFF') : C.textMuted} style={{ marginRight: 8 }} />
+                <TextInput
+                  style={{ flex: 1, color: C.textPrimary, fontSize: 15, padding: 0 }}
+                  placeholder="Search or enter merchant name..."
+                  placeholderTextColor={C.textMuted}
+                  value={merchantSearch}
+                  onChangeText={setMerchantSearch}
+                  onFocus={() => setIsMerchantSearchFocused(true)}
+                  onBlur={() => {
+                    if (!merchantSearch.trim()) setIsMerchantSearchFocused(false);
+                  }}
+                />
+                {merchantSearch.length > 0 && (
+                  <TouchableOpacity onPress={() => setMerchantSearch('')} style={{ padding: 4 }}>
+                    <X size={16} color={C.textMuted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {isMerchantSearchFocused && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setMerchantSearch('');
+                    setIsMerchantSearchFocused(false);
+                  }}
+                  style={{ paddingHorizontal: 6, paddingVertical: 4 }}
+                >
+                  <Text style={{ color: C.textSecondary, fontSize: 14, fontWeight: '600' }}>Cancel</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -916,20 +1072,20 @@ export const AddExpenseScreen = () => {
             )}
 
             {/* Category Filter Pills */}
-            <View style={{ height: 36, marginBottom: 14 }}>
+            <View style={{ height: 38, marginBottom: 14 }}>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ gap: 8, alignItems: 'center' }}
               >
-                {['All', 'Food', 'Shopping', 'Groceries', 'Transport', 'Bills', 'Entertainment', 'Health'].map(cat => {
+                {['All', 'Mostly Used', ...storeCategories].map(cat => {
                   const isSelected = merchantCategoryFilter === cat;
                   return (
                     <TouchableOpacity
                       key={cat}
                       style={{
                         paddingHorizontal: 14,
-                        paddingVertical: 6,
+                        paddingVertical: 7,
                         borderRadius: 14,
                         backgroundColor: isSelected ? (theme === 'light' ? '#000' : '#FFF') : C.surfaceElevated,
                         borderWidth: 1,
@@ -940,7 +1096,7 @@ export const AddExpenseScreen = () => {
                       onPress={() => setMerchantCategoryFilter(cat)}
                     >
                       <Text style={{ fontSize: 12, fontWeight: '600', color: isSelected ? (theme === 'light' ? '#FFF' : '#000') : C.textSecondary }}>
-                        {cat}
+                        {cat === 'Mostly Used' ? '⭐ Mostly Used' : cat}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -949,53 +1105,111 @@ export const AddExpenseScreen = () => {
             </View>
 
             {/* Merchant List */}
-            <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-              {POPULAR_MERCHANTS.filter(m => {
-                const matchesCat = merchantCategoryFilter === 'All' || m.category === merchantCategoryFilter;
-                const matchesSearch = !merchantSearch.trim() || m.name.toLowerCase().includes(merchantSearch.toLowerCase().trim());
-                return matchesCat && matchesSearch;
-              }).map((m, i, arr) => {
-                const isSelected = merchant === m.name;
-                return (
-                  <TouchableOpacity
-                    key={m.name}
-                    style={[
-                      styles.modalRow,
-                      { borderBottomColor: C.border },
-                      isSelected && { backgroundColor: 'rgba(34, 197, 94, 0.1)' },
-                      i === arr.length - 1 && { borderBottomWidth: 0 }
-                    ]}
-                    onPress={() => {
-                      setMerchant(m.name);
-                      if (!selectedCategory || selectedCategory === 'Other') {
-                        setSelectedCategory(m.category);
-                      }
-                      setShowMerchantModal(false);
-                    }}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <Text style={{ fontSize: 20 }}>{m.icon}</Text>
-                      <View>
-                        <Text style={[styles.modalRowText, { color: C.textPrimary }, isSelected && { color: '#22C55E', fontWeight: 'bold' }]}>
-                          {m.name}
-                        </Text>
-                        <Text style={{ color: C.textMuted, fontSize: 11 }}>{m.category}</Text>
-                      </View>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
+              {(() => {
+                let list = POPULAR_MERCHANTS;
+
+                if (merchantCategoryFilter === 'Mostly Used') {
+                  const counts: Record<string, number> = {};
+                  transactions.forEach(t => {
+                    if (t.title && t.title !== t.category) {
+                      counts[t.title] = (counts[t.title] || 0) + 1;
+                    }
+                  });
+                  const userTop = Object.entries(counts)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([name]) => {
+                      const match = POPULAR_MERCHANTS.find(p => p.name.toLowerCase() === name.toLowerCase());
+                      return match || { name, category: 'Other', icon: '🏪' };
+                    });
+                  const fallbackTop = POPULAR_MERCHANTS.slice(0, 18);
+                  list = [
+                    ...userTop,
+                    ...fallbackTop.filter(f => !userTop.some(u => u.name.toLowerCase() === f.name.toLowerCase()))
+                  ];
+                } else if (merchantCategoryFilter !== 'All') {
+                  list = POPULAR_MERCHANTS.filter(m => m.category.toLowerCase() === merchantCategoryFilter.toLowerCase());
+                }
+
+                if (merchantSearch.trim()) {
+                  const q = merchantSearch.toLowerCase().trim();
+                  list = list.filter(m => m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q));
+                }
+
+                if (list.length === 0) {
+                  return (
+                    <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+                      <Text style={{ color: C.textMuted, fontSize: 14, marginBottom: 12 }}>
+                        No payees found for "{merchantSearch || merchantCategoryFilter}"
+                      </Text>
+                      {merchantSearch.trim().length > 0 && (
+                        <TouchableOpacity
+                          style={{
+                            paddingHorizontal: 18,
+                            paddingVertical: 10,
+                            borderRadius: 12,
+                            backgroundColor: theme === 'light' ? '#18181B' : '#FFFFFF',
+                          }}
+                          onPress={() => {
+                            setMerchant(merchantSearch.trim());
+                            setShowMerchantModal(false);
+                          }}
+                        >
+                          <Text style={{ color: theme === 'light' ? '#FFFFFF' : '#000000', fontWeight: '700', fontSize: 13 }}>
+                            Use "{merchantSearch.trim()}" as Payee
+                          </Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
-                    {isSelected && <Check size={18} color="#22C55E" />}
-                  </TouchableOpacity>
-                );
-              })}
+                  );
+                }
+
+                return list.map((m, i, arr) => {
+                  const isSelected = merchant === m.name;
+                  return (
+                    <TouchableOpacity
+                      key={`${m.name}-${m.category}-${i}`}
+                      style={[
+                        styles.modalRow,
+                        { borderBottomColor: C.border },
+                        isSelected && { backgroundColor: 'rgba(34, 197, 94, 0.1)' },
+                        i === arr.length - 1 && { borderBottomWidth: 0 }
+                      ]}
+                      onPress={() => {
+                        setMerchant(m.name);
+                        if (!selectedCategory || selectedCategory === 'Other') {
+                          setSelectedCategory(m.category);
+                        }
+                        setShowMerchantModal(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                        <Text style={{ fontSize: 20 }}>{m.icon}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.modalRowText, { color: C.textPrimary, fontWeight: isSelected ? '700' : '600' }]}>
+                            {m.name}
+                          </Text>
+                          <Text style={{ fontSize: 11, color: C.textSecondary, marginTop: 1 }}>
+                            {m.category}
+                          </Text>
+                        </View>
+                      </View>
+                      {isSelected && <Check size={18} color="#22C55E" />}
+                    </TouchableOpacity>
+                  );
+                });
+              })()}
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ── Add Custom Category Modal ── */}
       <Modal visible={showAddCatModal} transparent animationType="slide">
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border }]}>
             <View style={styles.modalHeader}>
@@ -1048,10 +1262,10 @@ export const AddExpenseScreen = () => {
               style={[
                 styles.saveBtn,
                 {
-                  height: 46,
+                  height: 48,
                   marginHorizontal: 0,
                   marginBottom: 0,
-                  backgroundColor: newCatName.trim() ? '#22C55E' : (theme === 'light' ? '#E4E4E7' : '#27272A')
+                  backgroundColor: newCatName.trim() ? (theme === 'light' ? '#18181B' : '#FFFFFF') : (theme === 'light' ? '#E4E4E7' : '#27272A'),
                 }
               ]}
               disabled={!newCatName.trim()}
@@ -1065,7 +1279,9 @@ export const AddExpenseScreen = () => {
                 }
               }}
             >
-              <Text style={[styles.saveBtnText, { color: newCatName.trim() ? '#000' : C.textMuted }]}>Save & Select Category</Text>
+              <Text style={[styles.saveBtnText, { color: newCatName.trim() ? (theme === 'light' ? '#FFFFFF' : '#000000') : C.textMuted, fontSize: 14, fontWeight: '700' }]}>
+                Save & Select Category
+              </Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -1075,7 +1291,7 @@ export const AddExpenseScreen = () => {
       <Modal visible={showNoteModal} transparent animationType="slide">
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border }]}>
             <View style={styles.modalHeader}>
@@ -1104,10 +1320,18 @@ export const AddExpenseScreen = () => {
               autoFocus
             />
             <TouchableOpacity
-              style={[styles.saveBtn, { height: 46, marginTop: 14, marginBottom: 0, backgroundColor: '#22C55E' }]}
+              style={[
+                styles.saveBtn,
+                {
+                  height: 48,
+                  marginTop: 14,
+                  marginBottom: 0,
+                  backgroundColor: theme === 'light' ? '#18181B' : '#FFFFFF',
+                }
+              ]}
               onPress={() => setShowNoteModal(false)}
             >
-              <Text style={[styles.saveBtnText, { color: '#000' }]}>Done</Text>
+              <Text style={[styles.saveBtnText, { color: theme === 'light' ? '#FFFFFF' : '#000000', fontSize: 14, fontWeight: '700' }]}>Done</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -1118,7 +1342,10 @@ export const AddExpenseScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: C.textPrimary }]}>Select Account</Text>
+              <View>
+                <Text style={[styles.modalTitle, { color: C.textPrimary }]}>Select Account</Text>
+                <Text style={{ color: C.textMuted, fontSize: 11, marginTop: 2 }}>Long press an account to delete</Text>
+              </View>
               <TouchableOpacity onPress={() => setShowAccountPicker(null)}>
                 <X size={24} color={C.textPrimary} />
               </TouchableOpacity>
@@ -1139,6 +1366,28 @@ export const AddExpenseScreen = () => {
                       if (showAccountPicker === 'to') setToPaymentMode(acc.name);
                       setShowAccountPicker(null);
                     }}
+                    onLongPress={() => {
+                      const confirmDelete = () => {
+                        deleteAccount(acc.id);
+                        if (paymentMode === acc.name) setPaymentMode('');
+                        if (toPaymentMode === acc.name) setToPaymentMode('');
+                      };
+                      if (Platform.OS === 'web') {
+                        if (window.confirm(`Delete "${acc.name}" account?`)) {
+                          confirmDelete();
+                        }
+                      } else {
+                        Alert.alert(
+                          'Delete Account',
+                          `Are you sure you want to delete "${acc.name}"?`,
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Delete', style: 'destructive', onPress: confirmDelete }
+                          ]
+                        );
+                      }
+                    }}
+                    delayLongPress={350}
                     activeOpacity={0.7}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -1421,8 +1670,8 @@ const styles = StyleSheet.create({
   saveBtn: { width: '100%', borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   saveBtnText: { fontWeight: '700', letterSpacing: 0.2 },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, maxHeight: '60%', borderWidth: 1 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, borderWidth: 1 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 18, fontWeight: '700' },
   modalClose: { fontSize: 16, fontWeight: '600' },
