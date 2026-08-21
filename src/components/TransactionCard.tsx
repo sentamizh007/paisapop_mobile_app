@@ -24,9 +24,9 @@ export const TransactionCard = React.memo(({
   const isIncome   = tx.type === 'income';
   const isTransfer = tx.type === 'transfer';
   const amtPrefix  = isIncome ? '+' : isTransfer ? '' : '-';
-  const amtColor   = isIncome ? '#22C55E' : isTransfer ? '#14B8A6' : '#EF4444';
+  const amtColor   = isIncome ? '#22C55E' : isTransfer ? '#A855F7' : '#EF4444';
   const meta = categoryMeta?.[tx.category];
-  const col  = isTransfer ? '#14B8A6' : (meta?.color ?? getCategoryColor(tx.category as Category) ?? '#333');
+  const col  = isTransfer ? '#A855F7' : (meta?.color ?? getCategoryColor(tx.category as Category) ?? '#333');
 
   const bg = colors?.surface || '#131315';
   const border = colors?.border || '#27272A';
@@ -52,9 +52,9 @@ export const TransactionCard = React.memo(({
         delayLongPress={280}
       >
         {/* ── Icon ── */}
-        <View style={[styles.iconWrap, { backgroundColor: isIncome ? 'rgba(34,197,94,0.15)' : (meta?.color ? meta.color + '20' : 'rgba(99,102,241,0.15)') }]}>
+        <View style={[styles.iconWrap, { backgroundColor: isIncome ? 'rgba(34,197,94,0.15)' : isTransfer ? 'rgba(168,85,247,0.15)' : (meta?.color ? meta.color + '20' : 'rgba(99,102,241,0.15)') }]}>
           {isTransfer ? (
-            <ArrowRightLeft size={19} color="#14B8A6" strokeWidth={2} />
+            <ArrowRightLeft size={19} color="#A855F7" strokeWidth={2} />
           ) : meta?.emoji ? (
             <Text style={{ fontSize: 19 }}>{meta.emoji}</Text>
           ) : (
@@ -66,7 +66,7 @@ export const TransactionCard = React.memo(({
         <View style={styles.info}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={[styles.title, { color: textPrimary }]} numberOfLines={1}>
-              {tx.title || tx.category}
+              {tx.title || (isTransfer ? 'Transfer' : tx.category)}
             </Text>
             {!!tx.receipt && (
               <TouchableOpacity onPress={() => setShowReceiptModal(true)} style={styles.receiptBadge}>
@@ -75,8 +75,11 @@ export const TransactionCard = React.memo(({
             )}
           </View>
           <Text style={[styles.subtitle, { color: textSecondary }]} numberOfLines={1}>
-            {tx.paymentMethod ? `${tx.paymentMethod} • ` : ''}
-            {tx.notes ? tx.notes : tx.category}
+            {isTransfer ? (
+              tx.toPaymentMethod ? `${tx.paymentMethod || 'Wallet'} → ${tx.toPaymentMethod}` : (tx.paymentMethod ? `From: ${tx.paymentMethod}` : (tx.notes || 'Transfer'))
+            ) : (
+              `${tx.paymentMethod ? `${tx.paymentMethod} • ` : ''}${tx.notes ? tx.notes : tx.category}`
+            )}
           </Text>
         </View>
 
@@ -85,7 +88,7 @@ export const TransactionCard = React.memo(({
           <Text
             style={[
               styles.amount,
-              { color: isIncome ? '#22C55E' : isTransfer ? '#14B8A6' : textPrimary }
+              { color: isIncome ? '#22C55E' : isTransfer ? '#A855F7' : textPrimary }
             ]}
             numberOfLines={1}
             adjustsFontSizeToFit

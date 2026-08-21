@@ -9,7 +9,7 @@ import { useStore } from '../../store/useStore';
 import { useThemeColors } from '../../theme/colors';
 import { getCategoryColor, getCategoryIcon, Category, getCurrencySymbol } from '../../utils/mockData';
 import { DonutChart } from '../../components/DonutChart';
-import { ChevronLeft, ChevronRight, ReceiptText, Activity, Briefcase, Wallet, PieChart, ArrowDown } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, ReceiptText, Activity, Briefcase, Wallet, PieChart, ArrowDown, ArrowUp } from 'lucide-react-native';
 import { MONTH_NAMES } from '../../utils/exportUtils';
 
 const { width: SW } = Dimensions.get('window');
@@ -111,7 +111,7 @@ const SpendingLineChart = ({ data, labels, color, gridColor, textColor }: { data
 };
 
 // ── Metric Card ──────────────────────────────────────────────────────────────
-const MetricCard = ({ icon, title, value, subtitle, badgeText, badgeColor, colors }: any) => (
+const MetricCard = ({ icon, title, value, subtitle, badgeText, badgeColor, isUp, colors }: any) => (
   <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
     <View style={[styles.metricIconWrap, { backgroundColor: 'rgba(34,197,94,0.1)' }]}>{icon}</View>
     <Text style={[styles.metricTitle, { color: colors.textSecondary }]}>{title}</Text>
@@ -119,7 +119,7 @@ const MetricCard = ({ icon, title, value, subtitle, badgeText, badgeColor, color
     {badgeText ? (
       <View style={styles.metricBadgeRow}>
         <View style={styles.metricBadge}>
-          <ArrowDown size={10} color={badgeColor || "#22C55E"} />
+          {isUp ? <ArrowUp size={10} color={badgeColor || "#EF4444"} /> : <ArrowDown size={10} color={badgeColor || "#22C55E"} />}
           <Text style={[styles.metricBadgeText, { color: badgeColor || "#22C55E" }]}>{badgeText}</Text>
         </View>
         <Text style={[styles.metricSub, { color: colors.textSecondary }]} numberOfLines={2}>{subtitle}</Text>
@@ -161,14 +161,17 @@ export const AnalyticsScreen = () => {
 
   const totalSpent = useMemo(() => monthExpenses.reduce((s, tx) => s + tx.amount, 0), [monthExpenses]);
 
+  const prevMonthDate = new Date(activeMonth.getFullYear(), activeMonth.getMonth() - 1, 1);
+  const prevMonthName = MONTH_SHORT[prevMonthDate.getMonth()];
+  const prevMonthDays = new Date(activeMonth.getFullYear(), activeMonth.getMonth(), 0).getDate();
+
   const prevMonthTotal = useMemo(() => {
-    const pm = new Date(activeMonth.getFullYear(), activeMonth.getMonth() - 1, 1);
     return transactions.filter(tx => {
       if (tx.type !== 'expense') return false;
       const d = parseDate(tx.date);
-      return !isNaN(d.getTime()) && d.getFullYear() === pm.getFullYear() && d.getMonth() === pm.getMonth();
+      return !isNaN(d.getTime()) && d.getFullYear() === prevMonthDate.getFullYear() && d.getMonth() === prevMonthDate.getMonth();
     }).reduce((s, tx) => s + tx.amount, 0);
-  }, [transactions, activeMonth]);
+  }, [transactions, prevMonthDate]);
 
   const pctChange = prevMonthTotal > 0 ? Math.round(((totalSpent - prevMonthTotal) / prevMonthTotal) * 100) : 0;
   const pctChangeStr = `${Math.abs(pctChange)}%`;
@@ -176,6 +179,10 @@ export const AnalyticsScreen = () => {
   const daysInMonth = new Date(activeMonth.getFullYear(), activeMonth.getMonth() + 1, 0).getDate();
   const currentDay = (activeMonth.getFullYear() === now.getFullYear() && activeMonth.getMonth() === now.getMonth()) ? now.getDate() : daysInMonth;
   const dailyAvg = totalSpent / Math.max(currentDay, 1);
+
+  const prevDailyAvg = prevMonthTotal > 0 ? prevMonthTotal / prevMonthDays : 0;
+  const dailyAvgDiff = prevDailyAvg > 0 ? Math.round(((dailyAvg - prevDailyAvg) / prevDailyAvg) * 100) : 0;
+  const isDailyAvgDown = dailyAvgDiff <= 0;
 
   const biggestExpense = useMemo(() => {
     if (monthExpenses.length === 0) return null;
@@ -254,11 +261,17 @@ export const AnalyticsScreen = () => {
           <Text style={[styles.trendSub, { color: C.textSecondary }]}>Total Spent in {MONTH_SHORT[activeMonth.getMonth()]}</Text>
 
           <View style={styles.trendBadgeRow}>
-            <View style={[styles.badge, { backgroundColor: 'rgba(34,197,94,0.1)', borderColor: '#22C55E' }]}>
-              <ArrowDown size={12} color="#22C55E" />
-              <Text style={styles.badgeText}>{pctChangeStr}</Text>
-            </View>
-            <Text style={[styles.trendSubText, { color: C.textSecondary }]}>vs {MONTH_SHORT[activeMonth.getMonth() === 0 ? 11 : activeMonth.getMonth() - 1]} {activeMonth.getFullYear()}</Text>
+            {prevMonthTotal > 0 ? (
+              <>
+                <View style={[styles.badge, { backgroundColor: pctChange <= 0 ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', borderColor: pctChange <= 0 ? '#22C55E' : '#EF4444' }]}>
+                  {pctChange > 0 ? <ArrowUp size={12} color="#EF4444" /> : <ArrowDown size={12} color="#22C55E" />}
+                  <Text style={[styles.badgeText, { color: pctChange <= 0 ? '#22C55E' : '#EF4444' }]}>{pctChangeStr}</Text>
+                </View>
+                <Text style={[styles.trendSubText, { color: C.textSecondary }]}>vs {prevMonthName} {prevMonthDate.getFullYear()}</Text>
+              </>
+            ) : (
+              <Text style={[styles.trendSubText, { color: C.textSecondary }]}>No data for {prevMonthName}</Text>
+            )}
           </View>
 
           <SpendingLineChart data={trendData} labels={trendLabels} color="#22C55E" gridColor={C.border} textColor={C.textSecondary} />
@@ -269,7 +282,10 @@ export const AnalyticsScreen = () => {
             icon={<Activity size={20} color="#22C55E" />}
             title="Daily Average"
             value={`${sym}${Math.round(dailyAvg).toLocaleString('en-IN')}`}
-            badgeText="10%" badgeColor="#22C55E" subtitle="vs Apr"
+            badgeText={prevDailyAvg > 0 ? `${Math.abs(dailyAvgDiff)}%` : undefined}
+            badgeColor={isDailyAvgDown ? '#22C55E' : '#EF4444'}
+            isUp={!isDailyAvgDown}
+            subtitle={prevDailyAvg > 0 ? `vs ${prevMonthName}` : `${currentDay} days tracked`}
             colors={C}
           />
           <MetricCard
@@ -301,7 +317,7 @@ export const AnalyticsScreen = () => {
           </View>
 
           <View style={styles.breakdownContent}>
-            <View style={{ flex: 1, alignItems: 'center' }}>
+            <View style={{ alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <DonutChart segments={donutSegments} total={totalSpent} currencySymbol={sym} />
             </View>
 
@@ -311,11 +327,18 @@ export const AnalyticsScreen = () => {
                 return (
                   <View key={i} style={styles.breakdownRow}>
                     <View style={styles.breakdownLeft}>
-                      {meta?.emoji ? <Text style={{ fontSize: 14, width: 20 }}>{meta.emoji}</Text> : <View style={[styles.breakdownDot, { backgroundColor: seg.color }]} />}
+                      {meta?.emoji ? <Text style={{ fontSize: 13, width: 18 }}>{meta.emoji}</Text> : <View style={[styles.breakdownDot, { backgroundColor: seg.color }]} />}
                       <Text style={[styles.breakdownName, { color: C.textPrimary }]} numberOfLines={1}>{seg.label}</Text>
                     </View>
                     <View style={styles.breakdownRight}>
-                      <Text style={[styles.breakdownAmt, { color: C.textPrimary }]}>{sym}{seg.value.toLocaleString('en-IN')}</Text>
+                      <Text
+                        style={[styles.breakdownAmt, { color: C.textPrimary }]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.65}
+                      >
+                        {sym}{seg.value.toLocaleString('en-IN')}
+                      </Text>
                       <Text style={[styles.breakdownPct, { color: C.textSecondary }]}>{seg.percent}%</Text>
                     </View>
                   </View>
@@ -366,12 +389,12 @@ const styles = StyleSheet.create({
   metricSubColored: { fontSize: 11, lineHeight: 15 },
 
   breakdownContent: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
-  breakdownList: { flex: 1.2, paddingLeft: 14, gap: 12 },
-  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  breakdownLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
-  breakdownDot: { width: 10, height: 10, borderRadius: 5 },
-  breakdownName: { fontSize: 13, fontWeight: '500', flex: 1 },
-  breakdownRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  breakdownAmt: { fontSize: 13, fontWeight: '700' },
-  breakdownPct: { fontSize: 12.5, fontWeight: '600', minWidth: 42, textAlign: 'right' },
+  breakdownList: { flex: 1, paddingLeft: 12, gap: 10, minWidth: 0 },
+  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minWidth: 0 },
+  breakdownLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, marginRight: 6 },
+  breakdownDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
+  breakdownName: { fontSize: 12.5, fontWeight: '500', flexShrink: 1 },
+  breakdownRight: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0, maxWidth: '62%' },
+  breakdownAmt: { fontSize: 12, fontWeight: '700', flexShrink: 1, textAlign: 'right' },
+  breakdownPct: { fontSize: 11.5, fontWeight: '600', minWidth: 32, textAlign: 'right', flexShrink: 0 },
 });

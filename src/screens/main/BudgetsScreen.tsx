@@ -262,7 +262,12 @@ export const BudgetsScreen = () => {
             />
             <View style={styles.totalInfo}>
               <Text style={[styles.totalLabel, { color: C.textSecondary }]}>Total Monthly Budget</Text>
-              <Text style={[styles.totalAmount, { color: C.textPrimary }]}>
+              <Text
+                style={[styles.totalAmount, { color: C.textPrimary }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}
+              >
                 {monthlyBudget > 0 ? `${sym}${monthlyBudget.toLocaleString('en-IN')}` : 'Not Set'}
               </Text>
               
@@ -349,12 +354,43 @@ export const BudgetsScreen = () => {
       </ScrollView>
 
       {/* ── Set / Edit Budget Modal ── */}
-      <Modal visible={showAddModal} transparent animationType="slide" onRequestClose={() => setShowAddModal(false)}>
+      <Modal
+        visible={showAddModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAddModal(false)}
+        statusBarTranslucent
+      >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-          <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border, paddingBottom: Math.max(insets.bottom, 16) + 4 }]}>
+          {/* Tap backdrop to dismiss */}
+          <TouchableOpacity
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.75)' }}
+            activeOpacity={1}
+            onPress={() => setShowAddModal(false)}
+          />
+          <View
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: C.surface,
+                borderColor: C.border,
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+                borderBottomLeftRadius: 0,
+                borderBottomRightRadius: 0,
+                marginHorizontal: 0,
+                paddingBottom: Math.max(insets.bottom, 20) + 4,
+              }
+            ]}
+          >
+            {/* Drag handle */}
+            <View style={{ alignItems: 'center', marginBottom: 10, marginTop: -2 }}>
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: C.border }} />
+            </View>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: C.textPrimary }]}>
                 {isExistingBudget ? 'Edit Budget' : 'Set Budget'}
@@ -439,6 +475,8 @@ export const BudgetsScreen = () => {
               onChangeText={setNewBudgetAmt}
               placeholder="e.g. 5000"
               placeholderTextColor={C.textMuted}
+              returnKeyType="done"
+              onSubmitEditing={handleSaveBudget}
             />
 
             <TouchableOpacity

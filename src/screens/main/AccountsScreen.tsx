@@ -146,16 +146,23 @@ export const AccountsScreen = () => {
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 60 + bottomPad + 30 }]} showsVerticalScrollIndicator={false}>
 
         <View style={[styles.totalCard, { backgroundColor: C.surface, borderColor: C.border }]}>
-          <View>
+          <View style={{ flex: 1, marginRight: 12, justifyContent: 'center' }}>
             <Text style={[styles.totalLabel, { color: C.textSecondary }]}>Total Net Balance</Text>
-            <Text style={[styles.totalValue, { color: C.textPrimary }]}>{sym}{formatMoney(totalBalance)}</Text>
+            <Text
+              style={[styles.totalValue, { color: C.textPrimary }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.5}
+            >
+              {sym}{formatMoney(totalBalance)}
+            </Text>
             <View style={styles.vsLastMonth}>
               <ArrowUpRight size={14} color="#22C55E" />
-              <Text style={[styles.vsText, { color: C.textSecondary }]}>Active across {accounts.length} accounts</Text>
+              <Text style={[styles.vsText, { color: C.textSecondary }]} numberOfLines={1}>Active across {accounts.length} accounts</Text>
             </View>
           </View>
           <View style={[styles.walletIconWrap, { backgroundColor: 'rgba(34,197,94,0.12)' }]}>
-            <Wallet size={32} color="#22C55E" />
+            <Wallet size={30} color="#22C55E" />
           </View>
         </View>
 
@@ -443,7 +450,7 @@ const styles = StyleSheet.create({
   totalValue: { fontSize: 32, fontWeight: '800', marginBottom: 8, letterSpacing: -1 },
   vsLastMonth: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   vsText: { fontSize: 12 },
-  walletIconWrap: { width: 64, height: 64, borderRadius: 16, justifyContent: 'center', alignItems: 'center', position: 'relative' },
+  walletIconWrap: { width: 52, height: 52, borderRadius: 14, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
   listContainer: { borderRadius: 20, borderWidth: 1, marginBottom: 16, overflow: 'hidden' },
   accountRow: { flexDirection: 'row', alignItems: 'center', padding: 16, justifyContent: 'space-between' },
   accLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },

@@ -7,7 +7,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../store/useStore';
 import { useThemeColors } from '../../theme/colors';
-import { X, Search, ChevronLeft, ChevronRight, ArrowDown, ArrowUp } from 'lucide-react-native';
+import { X, Search, ChevronLeft, ChevronRight, ArrowDown, ArrowUp, ArrowRightLeft } from 'lucide-react-native';
 import { MONTH_NAMES } from '../../utils/exportUtils';
 import { TransactionCard } from '../../components/TransactionCard';
 import { getCurrencySymbol } from '../../utils/mockData';
@@ -91,16 +91,17 @@ export const HistoryScreen = () => {
     return Object.entries(groups).map(([title, data]) => ({ title, data }));
   }, [filtered]);
 
-  const { summarySpent, summaryIncome, netBalance } = useMemo(() => {
-    let spent = 0, income = 0;
+  const { summarySpent, summaryIncome, summaryTransfer, netBalance } = useMemo(() => {
+    let spent = 0, income = 0, transfer = 0;
     transactions.forEach(tx => {
       const d = parseDate(tx.date);
       if (!isNaN(d.getTime()) && d.getFullYear() === activeMonth.getFullYear() && d.getMonth() === activeMonth.getMonth()) {
         if (tx.type === 'expense') spent += tx.amount;
         else if (tx.type === 'income') income += tx.amount;
+        else if (tx.type === 'transfer') transfer += tx.amount;
       }
     });
-    return { summarySpent: spent, summaryIncome: income, netBalance: income - spent };
+    return { summarySpent: spent, summaryIncome: income, summaryTransfer: transfer, netBalance: income - spent };
   }, [transactions, activeMonth]);
 
   const confirmDelete = useCallback((id: string, name: string) => {
@@ -200,71 +201,115 @@ export const HistoryScreen = () => {
               Income
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.pill,
+              { backgroundColor: C.surface, borderColor: typeFilter === 'transfer' ? '#A855F7' : C.border },
+              typeFilter === 'transfer' && { backgroundColor: 'rgba(168,85,247,0.12)' }
+            ]}
+            onPress={() => setTypeFilter('transfer')}
+            activeOpacity={0.7}
+          >
+            <ArrowRightLeft size={13} color={typeFilter === 'transfer' ? '#A855F7' : C.textSecondary} />
+            <Text style={[styles.pillText, { color: typeFilter === 'transfer' ? '#A855F7' : C.textSecondary, fontWeight: typeFilter === 'transfer' ? '700' : '600' }]}>
+              Transfers
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
 
-      {/* Summary Card */}
+      {/* Summary Card (2x2 Grid) */}
       <View style={[styles.summaryCard, { backgroundColor: C.surface, borderColor: C.border }]}>
         <View style={styles.summaryHeader}>
           <Text style={[styles.summaryHeaderLabel, { color: C.textSecondary }]}>Monthly Summary</Text>
           <Text style={[styles.summaryDateText, { color: C.textPrimary }]}>{monthLabel}</Text>
         </View>
 
-        <View style={styles.summaryRow}>
-          {/* Expenses Column */}
-          <View style={styles.summaryCol}>
-            <Text style={[styles.summaryLabel, { color: C.textSecondary }]}>Expenses</Text>
-            <View style={styles.summaryValWrap}>
-              <Text
-                style={[styles.summaryVal, { color: C.textPrimary }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {sym}{summarySpent.toLocaleString('en-IN')}
-              </Text>
-              <ArrowDown size={11} color="#EF4444" />
-            </View>
-          </View>
-
-          <View style={[styles.summaryDivider, { backgroundColor: C.border }]} />
-
-          {/* Income Column */}
-          <View style={styles.summaryCol}>
-            <Text style={[styles.summaryLabel, { color: C.textSecondary }]}>Income</Text>
-            <View style={styles.summaryValWrap}>
-              <Text
-                style={[styles.summaryVal, { color: C.textPrimary }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {sym}{summaryIncome.toLocaleString('en-IN')}
-              </Text>
-              <ArrowUp size={11} color="#22C55E" />
-            </View>
-          </View>
-
-          <View style={[styles.summaryDivider, { backgroundColor: C.border }]} />
-
-          {/* Net Balance Column */}
-          <View style={styles.summaryCol}>
-            <Text style={[styles.summaryLabel, { color: C.textSecondary }]}>Net Balance</Text>
-            <View style={styles.summaryValWrap}>
-              <Text
-                style={[
-                  styles.summaryVal,
-                  { color: netBalance >= 0 ? '#22C55E' : '#EF4444' }
-                ]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {netBalance < 0 ? '-' : ''}{sym}{Math.abs(netBalance).toLocaleString('en-IN')}
-              </Text>
-              {netBalance >= 0 ? (
-                <ArrowUp size={11} color="#22C55E" />
-              ) : (
+        {/* Row 1: Expenses & Income */}
+        <View style={styles.summaryGridRow}>
+          {/* Expenses */}
+          <View style={styles.summaryGridCol}>
+            <View style={styles.summaryItemHeader}>
+              <View style={[styles.summaryIconDot, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
                 <ArrowDown size={11} color="#EF4444" />
-              )}
+              </View>
+              <Text style={[styles.summaryLabel, { color: C.textSecondary }]}>Expenses</Text>
             </View>
+            <Text
+              style={[styles.summaryVal, { color: C.textPrimary }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.5}
+            >
+              {sym}{summarySpent.toLocaleString('en-IN')}
+            </Text>
+          </View>
+
+          <View style={[styles.summaryVertDivider, { backgroundColor: C.border }]} />
+
+          {/* Income */}
+          <View style={styles.summaryGridCol}>
+            <View style={styles.summaryItemHeader}>
+              <View style={[styles.summaryIconDot, { backgroundColor: 'rgba(34, 197, 94, 0.15)' }]}>
+                <ArrowUp size={11} color="#22C55E" />
+              </View>
+              <Text style={[styles.summaryLabel, { color: C.textSecondary }]}>Income</Text>
+            </View>
+            <Text
+              style={[styles.summaryVal, { color: C.textPrimary }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.5}
+            >
+              {sym}{summaryIncome.toLocaleString('en-IN')}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[styles.summaryHorizDivider, { backgroundColor: C.border }]} />
+
+        {/* Row 2: Transfers & Net Balance */}
+        <View style={styles.summaryGridRow}>
+          {/* Transfers */}
+          <View style={styles.summaryGridCol}>
+            <View style={styles.summaryItemHeader}>
+              <View style={[styles.summaryIconDot, { backgroundColor: 'rgba(168, 85, 247, 0.15)' }]}>
+                <ArrowRightLeft size={11} color="#A855F7" />
+              </View>
+              <Text style={[styles.summaryLabel, { color: C.textSecondary }]}>Transfer</Text>
+            </View>
+            <Text
+              style={[styles.summaryVal, { color: C.textPrimary }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.5}
+            >
+              {sym}{summaryTransfer.toLocaleString('en-IN')}
+            </Text>
+          </View>
+
+          <View style={[styles.summaryVertDivider, { backgroundColor: C.border }]} />
+
+          {/* Net Balance */}
+          <View style={styles.summaryGridCol}>
+            <View style={styles.summaryItemHeader}>
+              <View style={[styles.summaryIconDot, { backgroundColor: netBalance >= 0 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)' }]}>
+                {netBalance >= 0 ? <ArrowUp size={11} color="#22C55E" /> : <ArrowDown size={11} color="#EF4444" />}
+              </View>
+              <Text style={[styles.summaryLabel, { color: C.textSecondary }]}>Net Balance</Text>
+            </View>
+            <Text
+              style={[
+                styles.summaryVal,
+                { color: netBalance >= 0 ? '#22C55E' : '#EF4444' }
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.5}
+            >
+              {netBalance < 0 ? '-' : ''}{sym}{Math.abs(netBalance).toLocaleString('en-IN')}
+            </Text>
           </View>
         </View>
       </View>
@@ -348,17 +393,19 @@ const styles = StyleSheet.create({
   pill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, borderWidth: 1 },
   pillText: { fontSize: 12.5 },
 
-  summaryCard: { borderRadius: 18, borderWidth: 1, padding: 14, marginBottom: 14 },
-  summaryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  summaryCard: { borderRadius: 20, borderWidth: 1, padding: 16, marginBottom: 14 },
+  summaryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   summaryHeaderLabel: { fontSize: 11.5, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   summaryDateText: { fontSize: 13, fontWeight: '600' },
 
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  summaryCol: { flex: 1, alignItems: 'center' },
-  summaryLabel: { fontSize: 11, marginBottom: 3, textAlign: 'center' },
-  summaryValWrap: { flexDirection: 'row', alignItems: 'center', gap: 3, justifyContent: 'center' },
-  summaryVal: { fontSize: 14.5, fontWeight: '700', letterSpacing: -0.3 },
-  summaryDivider: { width: 1, height: 26, marginHorizontal: 6 },
+  summaryGridRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  summaryGridCol: { flex: 1, minWidth: 0, paddingHorizontal: 4 },
+  summaryItemHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  summaryIconDot: { width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
+  summaryLabel: { fontSize: 11.5, fontWeight: '500' },
+  summaryVal: { fontSize: 15, fontWeight: '800', letterSpacing: -0.3 },
+  summaryVertDivider: { width: 1, height: 36, marginHorizontal: 8 },
+  summaryHorizDivider: { height: 1, width: '100%', marginVertical: 10 },
 
   sectionTitle: { fontSize: 12.5, fontWeight: '600', marginTop: 14, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 },
 

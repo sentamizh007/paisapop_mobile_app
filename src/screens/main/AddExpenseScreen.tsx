@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform,
   StatusBar as RNStatusBar, Dimensions, Alert, TextInput, Modal, Switch, Image, useWindowDimensions,
-  KeyboardAvoidingView, Vibration, LayoutAnimation, UIManager, Pressable, Animated
+  KeyboardAvoidingView, Vibration, LayoutAnimation, UIManager, Pressable, Animated, Keyboard
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -46,6 +46,22 @@ const getAccountIcon = (type: string, color: string, size = 20) => {
   }
 };
 
+const formatAmountDisplay = (str: string, currencyCode = 'INR') => {
+  if (!str) return '0';
+  const parts = str.split('.');
+  const intPart = parts[0] || '0';
+  const decPart = parts.length > 1 ? '.' + parts[1] : '';
+
+  const isIndian = currencyCode === 'INR' || currencyCode === '₹';
+  const locale = isIndian ? 'en-IN' : 'en-US';
+
+  const num = parseInt(intPart, 10);
+  if (isNaN(num)) return str;
+  const formattedInt = num.toLocaleString(locale);
+
+  return formattedInt + decPart;
+};
+
 export const AddExpenseScreen = () => {
   const C = useThemeColors();
   const theme = useStore(s => s.theme);
@@ -68,11 +84,8 @@ export const AddExpenseScreen = () => {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, Platform.OS === 'android' ? 6 : 0);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const [containerWidth, setContainerWidth] = useState(0);
-  const effectiveWidth = containerWidth > 0 ? containerWidth : (Platform.OS === 'web' ? 343 : Math.min(windowWidth - 32, 388));
-  const catItemWidth = (effectiveWidth - 18) / 4;
-
   const [amountStr, setAmountStr] = useState('0');
+  const formattedAmount = useMemo(() => formatAmountDisplay(amountStr, currency), [amountStr, currency]);
   const catScrollRef = useRef<ScrollView>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [txType, setTxType] = useState<TxType>('expense');
@@ -88,8 +101,18 @@ export const AddExpenseScreen = () => {
   const [notes, setNotes] = useState('');
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(new Date());
+  const [isTimeManuallySet, setIsTimeManuallySet] = useState(false);
+  const [isDateManuallySet, setIsDateManuallySet] = useState(false);
+  const [liveNow, setLiveNow] = useState(new Date());
   const [dateTimeTab, setDateTimeTab] = useState<'date' | 'time'>('date');
   const [showDateTimeDropdown, setShowDateTimeDropdown] = useState(false);
+
+  // Live clock ticker — only runs when time is NOT manually set
+  useEffect(() => {
+    if (isTimeManuallySet) return;
+    const interval = setInterval(() => setLiveNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, [isTimeManuallySet]);
 
   const timeSlots = useMemo(() => {
     const slots: { label: string; hour: number; minute: number }[] = [];
@@ -393,8 +416,13 @@ export const AddExpenseScreen = () => {
     }
 
     try {
-      const dateStr = date.toISOString().split('T')[0];
-      const timeStr = formatTimeStr(time);
+      // If user didn't manually pick a date, use today's date at save time
+      const effectiveDate = isDateManuallySet ? date : new Date();
+      // If user didn't manually pick a time, capture phone's current time at this exact moment
+      const effectiveTime = isTimeManuallySet ? time : new Date();
+
+      const dateStr = effectiveDate.toISOString().split('T')[0];
+      const timeStr = formatTimeStr(effectiveTime);
       const title = isTransfer
         ? `Transfer to ${toPaymentMode}`
         : (isIncome ? (notes.trim() || 'Income') : (merchant.trim() || selectedCategory || 'Expense'));
@@ -416,6 +444,10 @@ export const AddExpenseScreen = () => {
       setMerchant('');
       setNotes('');
       setReceiptUri(null);
+      setIsTimeManuallySet(false);
+      setIsDateManuallySet(false);
+      setDate(new Date());
+      setTime(new Date());
       navigation.navigate('History');
     } catch (e: any) {
       showAlert('Error', String(e.message || e));
@@ -546,7 +578,7 @@ export const AddExpenseScreen = () => {
               numberOfLines={1}
               adjustsFontSizeToFit
             >
-              {sym}{amountStr}
+              {sym}{formattedAmount}
             </Text>
 
             <View style={styles.amountBottomRow}>
@@ -645,20 +677,12 @@ export const AddExpenseScreen = () => {
               </TouchableOpacity>
             </View>
           ) : (
-            <View
-              style={[styles.catStripWrap, { height: isSmallScreen ? 32 : 36 }]}
-              onLayout={(e) => {
-                const w = e.nativeEvent.layout.width;
-                if (w > 100 && Math.abs(w - containerWidth) > 2) {
-                  setContainerWidth(w);
-                }
-              }}
-            >
+            <View style={[styles.catStripWrap, { height: isSmallScreen ? 32 : 36 }]}>
               <ScrollView
                 ref={catScrollRef}
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 6, alignItems: 'center' }}
+                contentContainerStyle={{ gap: 7, alignItems: 'center', paddingHorizontal: 2 }}
                 keyboardShouldPersistTaps="always"
                 nestedScrollEnabled={true}
               >
@@ -672,8 +696,8 @@ export const AddExpenseScreen = () => {
                       style={({ pressed }) => [
                         styles.catBtn,
                         {
-                          width: catItemWidth,
                           height: isSmallScreen ? 30 : 34,
+                          paddingHorizontal: 12,
                           backgroundColor: active ? (col + '22') : C.surface,
                           borderColor: active ? col : C.border,
                           opacity: pressed ? 0.6 : 1,
@@ -697,14 +721,15 @@ export const AddExpenseScreen = () => {
                       delayLongPress={200}
                       hitSlop={6}
                     >
-                      {meta?.emoji ? (
-                        <Text style={{ fontSize: 11.5 }}>{meta.emoji}</Text>
-                      ) : (
-                        getCategoryIcon(cat as any, col, 12)
-                      )}
+                      <View style={styles.catIconWrap}>
+                        {meta?.emoji ? (
+                          <Text style={{ fontSize: 11.5 }}>{meta.emoji}</Text>
+                        ) : (
+                          getCategoryIcon(cat as any, col, 13)
+                        )}
+                      </View>
                       <Text
                         numberOfLines={1}
-                        adjustsFontSizeToFit
                         style={[styles.catBtnText, { color: active ? col : C.textPrimary, fontWeight: active ? '700' : '600' }]}
                       >
                         {cat}
@@ -716,7 +741,7 @@ export const AddExpenseScreen = () => {
                   style={[
                     styles.catBtn,
                     {
-                      width: catItemWidth,
+                      paddingHorizontal: 14,
                       height: isSmallScreen ? 30 : 34,
                       backgroundColor: C.surfaceElevated,
                       borderColor: C.border,
@@ -783,15 +808,25 @@ export const AddExpenseScreen = () => {
               <TouchableOpacity
                 style={[
                   styles.metaColBtn,
-                  { flex: 1, height: isSmallScreen ? 34 : 38, backgroundColor: C.surface, borderColor: C.border }
+                  {
+                    flex: 1,
+                    height: isSmallScreen ? 34 : 38,
+                    backgroundColor: C.surface,
+                    borderColor: isTimeManuallySet || isDateManuallySet ? '#22C55E' : C.border,
+                  }
                 ]}
                 onPress={() => setShowDateTimeDropdown(!showDateTimeDropdown)}
                 activeOpacity={0.7}
               >
-                <Clock size={12} color={C.textSecondary} />
-                <Text numberOfLines={1} style={[styles.metaChipText, { color: C.textPrimary }]}>
-                  {date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, {formatTimeStr(time)}
+                <Clock size={12} color={isTimeManuallySet || isDateManuallySet ? '#22C55E' : C.textSecondary} />
+                <Text numberOfLines={1} style={[styles.metaChipText, { color: C.textPrimary, flexShrink: 1 }]}>
+                  {(isDateManuallySet ? date : liveNow).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })},{' '}
+                  {formatTimeStr(isTimeManuallySet ? time : liveNow)}
                 </Text>
+                {/* Live indicator dot — only visible when NOT manually set */}
+                {!isTimeManuallySet && !isDateManuallySet && (
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#EF4444', marginLeft: 2 }} />
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -976,9 +1011,19 @@ export const AddExpenseScreen = () => {
       {/* ── Merchant / Payee Picker Modal ── */}
       <Modal visible={showMerchantModal} transparent animationType="slide" onRequestClose={() => setShowMerchantModal(false)}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
+          {/* Tap backdrop to dismiss */}
+          <TouchableOpacity
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+            activeOpacity={1}
+            onPress={() => {
+              Keyboard.dismiss();
+              setShowMerchantModal(false);
+            }}
+          />
           <View
             style={[
               styles.modalContent,
@@ -1207,22 +1252,75 @@ export const AddExpenseScreen = () => {
       </Modal>
 
       {/* ── Add Custom Category Modal ── */}
-      <Modal visible={showAddCatModal} transparent animationType="slide" onRequestClose={() => setShowAddCatModal(false)}>
+      <Modal
+        visible={showAddCatModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setShowAddCatModal(false);
+        }}
+        statusBarTranslucent
+      >
         <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.82)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingHorizontal: 20,
+            paddingVertical: 24,
+          }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
         >
-          <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border, paddingBottom: Math.max(insets.bottom, 16) + 4 }]}>
+          {/* Tap backdrop to dismiss */}
+          <TouchableOpacity
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+            activeOpacity={1}
+            onPress={() => {
+              Keyboard.dismiss();
+              setShowAddCatModal(false);
+            }}
+          />
+
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 400,
+              backgroundColor: C.surface,
+              borderColor: C.border,
+              borderWidth: 1,
+              borderRadius: 24,
+              padding: 20,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.35,
+              shadowRadius: 20,
+              elevation: 10,
+            }}
+          >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: C.textPrimary }]}>Add Category</Text>
-              <TouchableOpacity onPress={() => setShowAddCatModal(false)}>
+              <TouchableOpacity
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setShowAddCatModal(false);
+                }}
+                style={{ padding: 4 }}
+              >
                 <X size={22} color={C.textPrimary} />
               </TouchableOpacity>
             </View>
 
             <Text style={{ color: C.textSecondary, fontSize: 13, marginBottom: 8, fontWeight: '500' }}>Category Icon</Text>
             <View style={{ height: 44, marginBottom: 14 }}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center' }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ alignItems: 'center' }}
+                keyboardShouldPersistTaps="handled"
+              >
                 {['🏷️', '💼', '💻', '🏬', '📈', '🎁', '🎀', '🏠', '🛒', '🍔', '✈️', '🎮', '💡', '🩺', '📚'].map(emoji => (
                   <TouchableOpacity
                     key={emoji}
@@ -1245,7 +1343,8 @@ export const AddExpenseScreen = () => {
               style={{
                 backgroundColor: C.surfaceElevated,
                 color: C.textPrimary,
-                padding: 12,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
                 borderRadius: 12,
                 fontSize: 15,
                 borderWidth: 1,
@@ -1257,6 +1356,16 @@ export const AddExpenseScreen = () => {
               value={newCatName}
               onChangeText={setNewCatName}
               autoFocus
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                const name = newCatName.trim();
+                if (name) {
+                  addCategory(name, { emoji: newCatEmoji, color: isIncome ? '#3B82F6' : '#22C55E' });
+                  setSelectedCategory(name);
+                  setShowAddCatModal(false);
+                  setNewCatName('');
+                }
+              }}
             />
 
             <TouchableOpacity
@@ -1289,15 +1398,46 @@ export const AddExpenseScreen = () => {
       </Modal>
 
       {/* ── Note Modal ── */}
-      <Modal visible={showNoteModal} transparent animationType="slide" onRequestClose={() => setShowNoteModal(false)}>
+      <Modal
+        visible={showNoteModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowNoteModal(false)}
+        statusBarTranslucent
+      >
         <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-          <View style={[styles.modalContent, { backgroundColor: C.surface, borderColor: C.border, paddingBottom: Math.max(insets.bottom, 16) + 4 }]}>
+          {/* Tap backdrop to dismiss */}
+          <TouchableOpacity
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.75)' }}
+            activeOpacity={1}
+            onPress={() => setShowNoteModal(false)}
+          />
+          <View
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: C.surface,
+                borderColor: C.border,
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+                borderBottomLeftRadius: 0,
+                borderBottomRightRadius: 0,
+                marginHorizontal: 0,
+                paddingBottom: Math.max(insets.bottom, 20) + 4,
+              }
+            ]}
+          >
+            {/* Drag handle */}
+            <View style={{ alignItems: 'center', marginBottom: 10, marginTop: -2 }}>
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: C.border }} />
+            </View>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: C.textPrimary }]}>Add Note</Text>
-              <TouchableOpacity onPress={() => setShowNoteModal(false)}>
+              <TouchableOpacity onPress={() => setShowNoteModal(false)} style={{ padding: 4 }}>
                 <X size={22} color={C.textPrimary} />
               </TouchableOpacity>
             </View>
@@ -1308,14 +1448,16 @@ export const AddExpenseScreen = () => {
                 padding: 14,
                 borderRadius: 12,
                 fontSize: 15,
-                height: 85,
+                minHeight: 90,
+                maxHeight: 160,
                 textAlignVertical: 'top',
                 borderWidth: 1,
-                borderColor: C.border
+                borderColor: C.border,
               }}
               placeholder="Enter your notes here..."
               placeholderTextColor={C.textMuted}
               multiline
+              scrollEnabled
               value={notes}
               onChangeText={setNotes}
               autoFocus
@@ -1324,7 +1466,7 @@ export const AddExpenseScreen = () => {
               style={[
                 styles.saveBtn,
                 {
-                  height: 48,
+                  height: 50,
                   marginTop: 14,
                   marginBottom: 0,
                   backgroundColor: theme === 'light' ? '#18181B' : '#FFFFFF',
@@ -1332,7 +1474,9 @@ export const AddExpenseScreen = () => {
               ]}
               onPress={() => setShowNoteModal(false)}
             >
-              <Text style={[styles.saveBtnText, { color: theme === 'light' ? '#FFFFFF' : '#000000', fontSize: 14, fontWeight: '700' }]}>Done</Text>
+              <Text style={[styles.saveBtnText, { color: theme === 'light' ? '#FFFFFF' : '#000000', fontSize: 14, fontWeight: '700' }]}>
+                ✓ Done
+              </Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -1435,10 +1579,18 @@ export const AddExpenseScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxHeight: '75%', backgroundColor: C.surface, borderColor: C.border, paddingBottom: Math.max(insets.bottom, 16) + 4 }]}>
             <View style={styles.modalHeader}>
-              <View>
-                <Text style={[styles.modalTitle, { color: C.textPrimary }]}>Date & Time</Text>
+              <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={[styles.modalTitle, { color: C.textPrimary }]}>Date & Time</Text>
+                  {!isTimeManuallySet && !isDateManuallySet && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' }}>
+                      <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#EF4444' }} />
+                      <Text style={{ color: '#EF4444', fontSize: 10, fontWeight: '700' }}>LIVE</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={{ color: C.textSecondary, fontSize: 12, marginTop: 2 }}>
-                  {date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} at {formatTimeStr(time)}
+                  {(isDateManuallySet ? date : liveNow).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}{' at '}{formatTimeStr(isTimeManuallySet ? time : liveNow)}
                 </Text>
               </View>
               <TouchableOpacity onPress={() => setShowDateTimeDropdown(false)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: '#22C55E' }}>
@@ -1464,19 +1616,67 @@ export const AddExpenseScreen = () => {
 
             {dateTimeTab === 'date' ? (
               <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 300 }}>
+                {/* "Use Current Date" quick-reset button */}
+                {isDateManuallySet && (
+                  <TouchableOpacity
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      paddingVertical: 10,
+                      backgroundColor: 'rgba(239,68,68,0.1)',
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: 'rgba(239,68,68,0.35)',
+                      marginBottom: 10,
+                    }}
+                    onPress={() => {
+                      setIsDateManuallySet(false);
+                      setDate(new Date());
+                    }}
+                  >
+                    <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#EF4444' }} />
+                    <Text style={{ color: '#EF4444', fontWeight: '700', fontSize: 13 }}>Reset to Today (Live)</Text>
+                  </TouchableOpacity>
+                )}
                 {Array.from({ length: 30 }).map((_, i) => {
                   const d = new Date();
                   d.setDate(d.getDate() - i);
-                  const isSelected = d.getDate() === date.getDate() && d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear();
+                  // If date not manually set, always highlight today (index 0)
+                  const isSelected = isDateManuallySet
+                    ? (d.getDate() === date.getDate() && d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear())
+                    : i === 0;
                   return (
                     <TouchableOpacity
                       key={i}
                       style={[styles.modalRow, { borderBottomColor: C.border }, isSelected && { backgroundColor: 'rgba(34, 197, 94, 0.1)' }]}
-                      onPress={() => setDate(d)}
+                      onPress={() => {
+                        if (i === 0 && !isDateManuallySet) {
+                          // Tapping today when already live — keep live
+                          return;
+                        }
+                        if (i === 0) {
+                          // User explicitly taps Today → reset to live
+                          setIsDateManuallySet(false);
+                          setDate(new Date());
+                        } else {
+                          setIsDateManuallySet(true);
+                          setDate(d);
+                        }
+                      }}
                     >
-                      <Text style={[styles.modalRowText, { color: C.textPrimary }, isSelected && { color: '#22C55E', fontWeight: 'bold' }]}>
-                        {i === 0 ? 'Today' : i === 1 ? 'Yesterday' : `${d.getDate().toString().padStart(2, '0')} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 6 }}>
+                        <Text style={[styles.modalRowText, { color: C.textPrimary }, isSelected && { color: '#22C55E', fontWeight: 'bold' }]}>
+                          {i === 0 ? 'Today' : i === 1 ? 'Yesterday' : `${d.getDate().toString().padStart(2, '0')} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`}
+                        </Text>
+                        {i === 0 && !isDateManuallySet && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: 'rgba(239,68,68,0.12)' }}>
+                            <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#EF4444' }} />
+                            <Text style={{ color: '#EF4444', fontSize: 9, fontWeight: '700' }}>LIVE</Text>
+                          </View>
+                        )}
+                      </View>
                       {isSelected && <Check size={18} color="#22C55E" />}
                     </TouchableOpacity>
                   );
@@ -1484,7 +1684,7 @@ export const AddExpenseScreen = () => {
               </ScrollView>
             ) : (
               <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 320 }}>
-                {/* Right Now Quick Button */}
+                {/* Live / Current Time Button */}
                 <TouchableOpacity
                   style={{
                     flexDirection: 'row',
@@ -1492,21 +1692,37 @@ export const AddExpenseScreen = () => {
                     justifyContent: 'center',
                     gap: 8,
                     paddingVertical: 12,
-                    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+                    backgroundColor: isTimeManuallySet ? 'rgba(239,68,68,0.1)' : 'rgba(34, 197, 94, 0.12)',
                     borderRadius: 14,
                     borderWidth: 1,
-                    borderColor: '#22C55E',
+                    borderColor: isTimeManuallySet ? 'rgba(239,68,68,0.5)' : '#22C55E',
                     marginBottom: 12,
                   }}
-                  onPress={() => setTime(new Date())}
+                  onPress={() => {
+                    // Reset to live time — clears manual selection
+                    setIsTimeManuallySet(false);
+                    setTime(new Date());
+                  }}
                 >
-                  <Clock size={16} color="#22C55E" />
-                  <Text style={{ color: '#22C55E', fontWeight: '700', fontSize: 13 }}>⏰ Set to Current Time (Now)</Text>
+                  {isTimeManuallySet ? (
+                    <>
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#EF4444' }} />
+                      <Text style={{ color: '#EF4444', fontWeight: '700', fontSize: 13 }}>Reset to Current Time (Live)</Text>
+                    </>
+                  ) : (
+                    <>
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' }} />
+                      <Text style={{ color: '#22C55E', fontWeight: '700', fontSize: 13 }}>⏰ Using Current Time — {formatTimeStr(liveNow)}</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
 
-                {/* 15-minute intervals list */}
+                {/* 15-minute time slot list */}
                 {timeSlots.map(slot => {
-                  const isSelected = time.getHours() === slot.hour && (Math.abs(time.getMinutes() - slot.minute) < 8 || time.getMinutes() === slot.minute);
+                  // Only highlight the selected slot if user manually set a time
+                  const isSelected = isTimeManuallySet &&
+                    time.getHours() === slot.hour &&
+                    (Math.abs(time.getMinutes() - slot.minute) < 8 || time.getMinutes() === slot.minute);
                   return (
                     <TouchableOpacity
                       key={slot.label}
@@ -1519,6 +1735,7 @@ export const AddExpenseScreen = () => {
                         const d = new Date(time);
                         d.setHours(slot.hour, slot.minute, 0, 0);
                         setTime(d);
+                        setIsTimeManuallySet(true); // Mark as manually picked
                       }}
                     >
                       <Text style={[styles.modalRowText, { color: C.textPrimary }, isSelected && { color: '#22C55E', fontWeight: 'bold' }]}>
@@ -1679,9 +1896,10 @@ const styles = StyleSheet.create({
   actionPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 5, borderRadius: 12, borderWidth: 1 },
   actionPillText: { fontSize: 11, fontWeight: '600' },
 
-  catStripWrap: { width: '100%', overflow: 'hidden' },
-  catBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, borderRadius: 12, borderWidth: 1, flexShrink: 0 },
-  catBtnText: { fontSize: 11 },
+  catStripWrap: { width: '100%' },
+  catBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, flexShrink: 0 },
+  catIconWrap: { justifyContent: 'center', alignItems: 'center' },
+  catBtnText: { fontSize: 11.5, includeFontPadding: false },
 
   metaGridRow: { flexDirection: 'row', gap: 8 },
   metaColBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: 12, borderWidth: 1, paddingHorizontal: 8 },

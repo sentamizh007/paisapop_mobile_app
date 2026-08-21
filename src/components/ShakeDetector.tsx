@@ -332,11 +332,16 @@ const QuickAddModal: React.FC<QuickAddModalProps> = ({ visible, isQuickLaunch, o
         style={[
           styles.overlayFill,
           {
-            backgroundColor: 'rgba(0,0,0,0.32)',
+            // When launched from home screen: fully transparent so wallpaper shows through
+            // When launched from inside app: semi-dark scrim
+            backgroundColor: isQuickLaunch ? 'transparent' : 'rgba(0,0,0,0.45)',
           }
         ]}
       >
-        <BlurView intensity={Platform.OS === 'ios' ? 30 : 20} tint={isLight ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
+        {/* BlurView only when inside app — can't blur wallpaper on Android */}
+        {!isQuickLaunch && (
+          <BlurView intensity={Platform.OS === 'ios' ? 30 : 20} tint={isLight ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
+        )}
 
         {/* Tap outside to dismiss */}
         <TouchableOpacity

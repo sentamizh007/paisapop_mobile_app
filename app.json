@@ -34,7 +34,8 @@
       "expo-sqlite",
       "expo-sharing",
       "expo-splash-screen",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "./plugins/withOverlayPermission"
     ],
     "extra": {
       "eas": {

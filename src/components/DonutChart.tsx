@@ -29,6 +29,8 @@ export const DonutChart = ({ segments, total, currencySymbol }: Props) => {
     );
   }
 
+  const innerDiameter = size - stroke * 2;
+
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
       <Svg width={size} height={size}>
@@ -60,8 +62,29 @@ export const DonutChart = ({ segments, total, currencySymbol }: Props) => {
         </G>
       </Svg>
 
-      <View style={{ position: 'absolute', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 }}>
-        <Text style={{ color: '#FAFAFA', fontSize: 14, fontWeight: '800', textAlign: 'center' }} numberOfLines={1} adjustsFontSizeToFit>
+      <View
+        style={{
+          position: 'absolute',
+          width: innerDiameter - 4,
+          maxWidth: innerDiameter - 4,
+          height: innerDiameter - 4,
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingHorizontal: 4,
+        }}
+      >
+        <Text
+          style={{
+            color: '#FAFAFA',
+            fontSize: 13,
+            fontWeight: '800',
+            textAlign: 'center',
+            width: '100%',
+          }}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.45}
+        >
           {currencySymbol}{total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
         </Text>
         <Text style={{ color: '#A1A1AA', fontSize: 10, marginTop: 1, fontWeight: '500' }}>Total</Text>
